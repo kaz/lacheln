@@ -19,7 +19,7 @@ func getDummy(key string, args ...string) (string, error) {
 	return generator(args...)
 }
 
-func initGenerators() {
+func init() {
 	rand.Seed(time.Now().Unix())
 
 	definedGenerators["user_id"] = dummyUserID

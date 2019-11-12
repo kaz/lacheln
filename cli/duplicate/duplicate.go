@@ -35,8 +35,6 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("yaml.Decoder.Decode failed: %w", err)
 	}
 
-	initGenerators()
-
 	sqls := []string{}
 	for _, ent := range entries {
 		for i := 0; i < ent.Count; i++ {
