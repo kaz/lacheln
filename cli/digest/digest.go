@@ -37,7 +37,7 @@ func Action(context *cli.Context) error {
 		fp := query.Fingerprint(event.Query)
 
 		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{0, event.Query}
+			entMap[fp] = &Entry{0, event.Query + "\n"}
 			entries = append(entries, entMap[fp])
 		}
 
@@ -46,12 +46,8 @@ func Action(context *cli.Context) error {
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
 
-	data, err := yaml.Marshal(entries)
-	if err != nil {
-		return fmt.Errorf("yaml.Marshal failed: %w", err)
-	}
-
 	var out io.Writer = os.Stdout
+
 	outFilePath := context.String("out")
 	if outFilePath != "" {
 		outFile, err := os.Create(outFilePath)
@@ -63,9 +59,8 @@ func Action(context *cli.Context) error {
 		out = outFile
 	}
 
-	if _, err := out.Write(data); err != nil {
-		return fmt.Errorf("out.Write failed: %w", err)
+	if err := yaml.NewEncoder(out).Encode(entries); err != nil {
+		return fmt.Errorf("yaml.Encoder.Encode failed: %w", err)
 	}
-
 	return nil
 }
