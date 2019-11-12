@@ -18,7 +18,7 @@ type (
 		Replace []Replace `yaml:",omitempty"`
 	}
 	Replace struct {
-		Key  string   `yaml:",omitempty"`
+		Key  string
 		Args []string `yaml:",omitempty"`
 	}
 )
