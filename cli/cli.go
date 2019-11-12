@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/kaz/sql-replay/cli/digest"
+	"github.com/kaz/sql-replay/cli/duplicate"
 	"github.com/urfave/cli"
 )
 
@@ -28,6 +29,18 @@ func Start() error {
 				},
 				cli.StringFlag{
 					Name: "yaml",
+				},
+			},
+		},
+		{
+			Name:   "duplicate",
+			Action: duplicate.Action,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name: "yaml",
+				},
+				cli.StringFlag{
+					Name: "sql",
 				},
 			},
 		},
