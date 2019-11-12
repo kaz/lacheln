@@ -48,7 +48,7 @@ func Action(context *cli.Context) error {
 
 	var out io.Writer = os.Stdout
 
-	outFilePath := context.String("out")
+	outFilePath := context.String("yaml")
 	if outFilePath != "" {
 		outFile, err := os.Create(outFilePath)
 		if err != nil {
