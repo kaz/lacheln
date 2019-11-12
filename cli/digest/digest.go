@@ -15,7 +15,7 @@ import (
 
 type (
 	Entry struct {
-		Count uint
+		Count int
 		Query string
 	}
 )
