@@ -3,8 +3,8 @@ package cli
 import (
 	"os"
 
-	"github.com/kaz/sql-replay/cli/digest"
-	"github.com/kaz/sql-replay/cli/duplicate"
+	"github.com/kaz/sql-replay/digest"
+	"github.com/kaz/sql-replay/duplicate"
 	"github.com/urfave/cli"
 )
 
