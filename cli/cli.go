@@ -28,7 +28,7 @@ func Start() error {
 					Name: "slowlog",
 				},
 				cli.StringFlag{
-					Name: "yaml",
+					Name: "output",
 				},
 			},
 		},

@@ -6,14 +6,17 @@ import (
 	"os"
 	"sort"
 
-	"github.com/percona/go-mysql/log"
-	"github.com/percona/go-mysql/log/slow"
 	"github.com/percona/go-mysql/query"
 	"github.com/urfave/cli"
 	"gopkg.in/yaml.v2"
 )
 
 type (
+	QuerySource interface {
+		Query() chan string
+		Close() error
+	}
+
 	Entry struct {
 		Count int
 		Query string
@@ -21,23 +24,28 @@ type (
 )
 
 func Action(context *cli.Context) error {
-	slowlogFile, err := os.Open(context.String("slowlog"))
-	if err != nil {
-		return fmt.Errorf("os.Open failed: %w", err)
+	var qs QuerySource
+
+	if context.String("slowlog") != "" {
+		slowlog, err := NewSlowLogQuerySource(context.String("slowlog"))
+		if err != nil {
+			return fmt.Errorf("NewSlowLogQuerySource failed: %w", err)
+		}
+		defer slowlog.Close()
+
+		qs = slowlog
+	} else {
+		return fmt.Errorf("no query source was specified")
 	}
-	defer slowlogFile.Close()
 
 	entries := []*Entry{}
 	entMap := map[string]*Entry{}
 
-	parser := slow.NewSlowLogParser(slowlogFile, log.Options{})
-	go parser.Start()
-
-	for event := range parser.EventChan() {
-		fp := query.Fingerprint(event.Query)
+	for q := range qs.Query() {
+		fp := query.Fingerprint(q)
 
 		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{0, event.Query + "\n"}
+			entMap[fp] = &Entry{0, q + "\n"}
 			entries = append(entries, entMap[fp])
 		}
 
@@ -48,7 +56,7 @@ func Action(context *cli.Context) error {
 
 	var out io.Writer = os.Stdout
 
-	outFilePath := context.String("yaml")
+	outFilePath := context.String("output")
 	if outFilePath != "" {
 		outFile, err := os.Create(outFilePath)
 		if err != nil {
