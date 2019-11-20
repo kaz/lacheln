@@ -19,7 +19,10 @@ type (
 
 	Entry struct {
 		Count int
-		Query string
+		ID    string
+
+		Query       string
+		Fingerprint string
 	}
 )
 
@@ -51,9 +54,10 @@ func Action(context *cli.Context) error {
 
 	for q := range qs.Query() {
 		fp := query.Fingerprint(q)
+		id := query.Id(fp)
 
 		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{0, q + "\n"}
+			entMap[fp] = &Entry{0, id, q + "\n", fp + "\n"}
 			entries = append(entries, entMap[fp])
 		}
 
