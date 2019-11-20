@@ -34,6 +34,14 @@ func Action(context *cli.Context) error {
 		defer slowlog.Close()
 
 		qs = slowlog
+	} else if context.String("pcap") != "" {
+		pcap, err := NewPcapQuerySource(context.String("pcap"))
+		if err != nil {
+			return fmt.Errorf("NewPcapQuerySource failed: %w", err)
+		}
+		defer pcap.Close()
+
+		qs = pcap
 	} else {
 		return fmt.Errorf("no query source was specified")
 	}

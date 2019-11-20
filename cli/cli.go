@@ -28,6 +28,9 @@ func Start() error {
 					Name: "slowlog",
 				},
 				cli.StringFlag{
+					Name: "pcap",
+				},
+				cli.StringFlag{
 					Name: "output",
 				},
 			},
