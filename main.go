@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kaz/sql-replay/benchmark/hq"
 	"github.com/kaz/sql-replay/benchmark/worker"
 	"github.com/kaz/sql-replay/digest"
 	"github.com/kaz/sql-replay/duplicate"
@@ -55,6 +56,20 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name: "port",
+					},
+				},
+			},
+			{
+				Name: "hq",
+				Subcommands: []*cli.Command{
+					{
+						Name:   "sync",
+						Action: hq.ActionSync,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name: "config",
+							},
+						},
 					},
 				},
 			},
