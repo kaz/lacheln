@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kaz/sql-replay/benchmark/worker"
 	"github.com/kaz/sql-replay/digest"
 	"github.com/kaz/sql-replay/duplicate"
 	"github.com/urfave/cli/v2"
@@ -45,6 +46,15 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name: "sql",
+					},
+				},
+			},
+			{
+				Name:   "worker",
+				Action: worker.Action,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name: "port",
 					},
 				},
 			},
