@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
@@ -60,23 +59,16 @@ func (w *worker) Start() error {
 func (w *worker) handle(c net.Conn) error {
 	defer c.Close()
 
-	msgType, err := msg.ReadMessageType(c)
+	rawBody, err := msg.Receive(c)
 	if err != nil {
-		return fmt.Errorf("msg.ReadMessageType failed: %w", err)
+		return fmt.Errorf("msg.Receive failed: %w", err)
 	}
 
-	switch msgType {
-	case msg.MESSAGE_SYNC_CONFIG:
-		message := &msg.SyncConfigMessage{}
-		if err := gob.NewDecoder(c).Decode(message); err != nil {
-			return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
-		}
-
-		w.config = message.Config
+	if body, ok := rawBody.(*msg.SyncConfigMessage); ok {
+		w.config = body.Config
 		fmt.Printf("received config: %v\n", w.config)
-
-	default:
-		return fmt.Errorf("unexpected message type: %v", msgType)
+	} else {
+		return fmt.Errorf("unexpected message type: %v", rawBody)
 	}
 
 	return nil

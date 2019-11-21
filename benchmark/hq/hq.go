@@ -1,7 +1,6 @@
 package hq
 
 import (
-	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -58,12 +57,8 @@ func doSync(worker string, conf *msg.WorkerConfig) error {
 	}
 	defer conn.Close()
 
-	if err := msg.WriteMessageType(conn, msg.MESSAGE_SYNC_CONFIG); err != nil {
-		return fmt.Errorf("msg.WriteMessageType failed: %w", err)
-	}
-
-	if err := gob.NewEncoder(conn).Encode(&msg.SyncConfigMessage{Config: conf}); err != nil {
-		return fmt.Errorf("gob.NewEncoder.Encode failed: %w", err)
+	if err := msg.Send(conn, &msg.SyncConfigMessage{Config: conf}); err != nil {
+		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 
 	return nil
