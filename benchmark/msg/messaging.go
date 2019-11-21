@@ -10,22 +10,28 @@ import (
 type (
 	MessageType byte
 
+	AcknowledgedMessage struct {
+		OK bool
+	}
 	SyncConfigMessage struct {
 		Config *WorkerConfig
 	}
 )
 
 const (
-	MESSAGE_UNKNOWN MessageType = iota
-	MESSAGE_SYNC_CONFIG
+	typeUnknown MessageType = iota
+	typeAcknowledged
+	typeSyncConfig
 )
 
 func Send(w io.Writer, body interface{}) error {
 	var typ MessageType
 
 	switch body.(type) {
+	case *AcknowledgedMessage:
+		typ = typeAcknowledged
 	case *SyncConfigMessage:
-		typ = MESSAGE_SYNC_CONFIG
+		typ = typeSyncConfig
 	default:
 		return fmt.Errorf("unexpected type: %#v", body)
 	}
@@ -46,7 +52,9 @@ func Receive(r io.Reader) (interface{}, error) {
 
 	var body interface{}
 	switch typ {
-	case MESSAGE_SYNC_CONFIG:
+	case typeAcknowledged:
+		body = &AcknowledgedMessage{}
+	case typeSyncConfig:
 		body = &SyncConfigMessage{}
 	default:
 		return nil, fmt.Errorf("unexpected type: %#v", typ)
@@ -67,7 +75,7 @@ func sendType(w io.Writer, typ MessageType) error {
 func receiveType(r io.Reader) (MessageType, error) {
 	b := []byte{0}
 	if _, err := r.Read(b); err != nil {
-		return MESSAGE_UNKNOWN, fmt.Errorf("reader.Read failed: %w", err)
+		return typeUnknown, fmt.Errorf("reader.Read failed: %w", err)
 	}
 	return MessageType(b[0]), nil
 }

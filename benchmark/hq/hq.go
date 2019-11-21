@@ -61,5 +61,16 @@ func doSync(worker string, conf *msg.WorkerConfig) error {
 		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 
+	raw, err := msg.Receive(conn)
+	if err != nil {
+		return fmt.Errorf("msg.Receive failed: %w", err)
+	}
+
+	ack, ok := raw.(*msg.AcknowledgedMessage)
+	if !ok {
+		return fmt.Errorf("unexpected message: %v", raw)
+	}
+
+	fmt.Printf("worker %v acknowledged: %+v", worker, ack)
 	return nil
 }

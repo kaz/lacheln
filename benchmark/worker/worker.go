@@ -64,11 +64,18 @@ func (w *worker) handle(c net.Conn) error {
 		return fmt.Errorf("msg.Receive failed: %w", err)
 	}
 
+	var resp interface{}
+
 	if body, ok := rawBody.(*msg.SyncConfigMessage); ok {
 		w.config = body.Config
+		resp = &msg.AcknowledgedMessage{OK: true}
 		fmt.Printf("received config: %v\n", w.config)
 	} else {
 		return fmt.Errorf("unexpected message type: %v", rawBody)
+	}
+
+	if err := msg.Send(c, resp); err != nil {
+		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 
 	return nil
