@@ -6,7 +6,7 @@ import (
 
 	"github.com/kaz/sql-replay/digest"
 	"github.com/kaz/sql-replay/duplicate"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -14,37 +14,38 @@ var (
 )
 
 func main() {
-	app := cli.NewApp()
+	app := &cli.App{
 
-	app.Name = "sql-replay"
-	app.Usage = "benchmarking tool for db"
-	app.Version = Version
+		Name:    "sql-replay",
+		Usage:   "benchmarking tool for db",
+		Version: Version,
 
-	app.Commands = []cli.Command{
-		{
-			Name:   "digest",
-			Action: digest.Action,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name: "slowlog",
-				},
-				cli.StringFlag{
-					Name: "pcap",
-				},
-				cli.StringFlag{
-					Name: "output",
+		Commands: []*cli.Command{
+			{
+				Name:   "digest",
+				Action: digest.Action,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name: "slowlog",
+					},
+					&cli.StringFlag{
+						Name: "pcap",
+					},
+					&cli.StringFlag{
+						Name: "output",
+					},
 				},
 			},
-		},
-		{
-			Name:   "duplicate",
-			Action: duplicate.Action,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name: "yaml",
-				},
-				cli.StringFlag{
-					Name: "sql",
+			{
+				Name:   "duplicate",
+				Action: duplicate.Action,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name: "yaml",
+					},
+					&cli.StringFlag{
+						Name: "sql",
+					},
 				},
 			},
 		},

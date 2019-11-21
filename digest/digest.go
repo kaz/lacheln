@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/percona/go-mysql/query"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 )
 
