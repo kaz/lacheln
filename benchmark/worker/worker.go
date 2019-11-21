@@ -69,7 +69,7 @@ func (w *worker) handle(c net.Conn) error {
 	if body, ok := rawBody.(*msg.SyncConfigMessage); ok {
 		w.config = body.Config
 		resp = &msg.AcknowledgedMessage{OK: true}
-		fmt.Printf("received config: %v\n", w.config)
+		fmt.Printf("received config: %#v\n", w.config)
 	} else {
 		return fmt.Errorf("unexpected message type: %v", rawBody)
 	}
