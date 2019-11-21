@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/kaz/sql-replay/benchmark"
+	"github.com/kaz/sql-replay/benchmark/msg"
 	"github.com/urfave/cli/v2"
 )
 
@@ -15,7 +15,7 @@ type (
 	worker struct {
 		listener net.Listener
 
-		config *benchmark.Config
+		config *msg.WorkerConfig
 	}
 )
 
@@ -60,15 +60,23 @@ func (w *worker) Start() error {
 func (w *worker) handle(c net.Conn) error {
 	defer c.Close()
 
-	var rawMsg interface{}
-	if err := gob.NewDecoder(c).Decode(&rawMsg); err != nil {
-		return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
+	msgType, err := msg.ReadMessageType(c)
+	if err != nil {
+		return fmt.Errorf("msg.ReadMessageType failed: %w", err)
 	}
 
-	if msg, ok := rawMsg.(benchmark.SyncConfigMessage); ok {
-		w.config = msg.Config
-	} else {
-		return fmt.Errorf("unexpected message: %#v", rawMsg)
+	switch msgType {
+	case msg.MESSAGE_SYNC_CONFIG:
+		message := &msg.SyncConfigMessage{}
+		if err := gob.NewDecoder(c).Decode(message); err != nil {
+			return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
+		}
+
+		w.config = message.Config
+		fmt.Printf("received config: %v\n", w.config)
+
+	default:
+		return fmt.Errorf("unexpected message type: %v", msgType)
 	}
 
 	return nil
