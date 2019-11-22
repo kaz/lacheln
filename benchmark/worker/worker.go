@@ -14,7 +14,8 @@ type (
 	worker struct {
 		listener net.Listener
 
-		config *msg.WorkerConfig
+		config  *msg.WorkerConfig
+		queries []*msg.Query
 	}
 )
 
@@ -70,6 +71,10 @@ func (w *worker) handle(c net.Conn) error {
 		w.config = body.Config
 		resp = &msg.AcknowledgedMessage{OK: true}
 		fmt.Printf("received config: %#v\n", w.config)
+	} else if body, ok := rawBody.(*msg.PutQueryMessage); ok {
+		w.queries = body.Query
+		resp = &msg.AcknowledgedMessage{OK: true}
+		fmt.Printf("received %v queries\n", len(w.queries))
 	} else {
 		return fmt.Errorf("unexpected message type: %v", rawBody)
 	}
