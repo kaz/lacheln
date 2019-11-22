@@ -2,10 +2,14 @@ package msg
 
 type (
 	BenchmarkConfig struct {
-		Connections int
+		Threads   int
+		RWServers []*Server `yaml:"rw_servers"`
+		ROServers []*Server `yaml:"ro_servers"`
+	}
 
-		RWServers []string `yaml:"rw_servers"`
-		ROServers []string `yaml:"ro_servers"`
+	Server struct {
+		DSN         string
+		Connections int
 	}
 
 	Query struct {

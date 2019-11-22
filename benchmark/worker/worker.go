@@ -80,7 +80,9 @@ func (w *worker) handle(c net.Conn) {
 		fmt.Println(detail)
 	} else if body, ok := rawBody.(*msg.BenchmarkStartMessage); ok {
 		w.config = body.Config
-		go w.benchmark()
+		if err := w.startBenchmark(); err != nil {
+			panic(fmt.Errorf("starting benchmark failed: %w", err))
+		}
 
 		detail := fmt.Sprintf("benchmark was started with config: %+v", w.config)
 		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
