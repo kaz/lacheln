@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/kaz/sql-replay/benchmark/msg"
-
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 )
