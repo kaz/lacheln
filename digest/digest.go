@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/percona/go-mysql/query"
 	"github.com/urfave/cli/v2"
@@ -18,11 +19,11 @@ type (
 	}
 
 	Entry struct {
-		Count int
-		ID    string
-
-		Query       string
+		ID          string
 		Fingerprint string
+		ReadOnly    bool
+		Query       string
+		Count       int
 	}
 )
 
@@ -57,7 +58,7 @@ func Action(context *cli.Context) error {
 		id := query.Id(fp)
 
 		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{0, id, q + "\n", fp + "\n"}
+			entMap[fp] = &Entry{id, fp + "\n", strings.HasPrefix(fp, "select"), q + "\n", 0}
 			entries = append(entries, entMap[fp])
 		}
 

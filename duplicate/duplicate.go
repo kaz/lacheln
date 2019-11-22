@@ -5,7 +5,8 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"strings"
+
+	"github.com/kaz/sql-replay/benchmark/msg"
 
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
@@ -13,9 +14,10 @@ import (
 
 type (
 	Entry struct {
-		Count   int
-		Query   string
-		Replace []Replace `yaml:",omitempty"`
+		ReadOnly bool
+		Query    string
+		Count    int
+		Replace  []*Replace `yaml:",omitempty"`
 	}
 	Replace struct {
 		Key  string
@@ -24,7 +26,7 @@ type (
 )
 
 func Action(context *cli.Context) error {
-	input, err := os.Open(context.String("yaml"))
+	input, err := os.Open(context.String("input"))
 	if err != nil {
 		return fmt.Errorf("os.Open failed: %w", err)
 	}
@@ -35,7 +37,7 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("yaml.Decoder.Decode failed: %w", err)
 	}
 
-	sqls := []string{}
+	queries := []*msg.Query{}
 	for _, ent := range entries {
 		for i := 0; i < ent.Count; i++ {
 			vals := []interface{}{}
@@ -54,15 +56,15 @@ func Action(context *cli.Context) error {
 					vals = append(vals, dummy)
 				}
 			}
-			sqls = append(sqls, fmt.Sprintf(ent.Query, vals...))
+			queries = append(queries, &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)})
 		}
 	}
 
-	rand.Shuffle(len(sqls), func(i, j int) { sqls[i], sqls[j] = sqls[j], sqls[i] })
+	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
 
 	var out io.Writer = os.Stdout
 
-	outFilePath := context.String("sql")
+	outFilePath := context.String("output")
 	if outFilePath != "" {
 		outFile, err := os.Create(outFilePath)
 		if err != nil {
@@ -73,10 +75,8 @@ func Action(context *cli.Context) error {
 		out = outFile
 	}
 
-	for _, sql := range sqls {
-		if _, err := fmt.Fprintf(out, "%s;\n", strings.TrimSpace(sql)); err != nil {
-			return fmt.Errorf("fmt.Fprintf failed: %w", err)
-		}
+	if err := msg.Send(out, &msg.PutQueryMessage{Query: queries}); err != nil {
+		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 
 	return nil

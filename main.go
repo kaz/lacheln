@@ -43,10 +43,10 @@ func main() {
 				Action: duplicate.Action,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name: "yaml",
+						Name: "input",
 					},
 					&cli.StringFlag{
-						Name: "sql",
+						Name: "output",
 					},
 				},
 			},

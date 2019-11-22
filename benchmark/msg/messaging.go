@@ -16,12 +16,16 @@ type (
 	SyncConfigMessage struct {
 		Config *WorkerConfig
 	}
+	PutQueryMessage struct {
+		Query []*Query
+	}
 )
 
 const (
 	typeUnknown MessageType = iota
 	typeAcknowledged
 	typeSyncConfig
+	typePutQuery
 )
 
 func Send(w io.Writer, body interface{}) error {
@@ -32,6 +36,8 @@ func Send(w io.Writer, body interface{}) error {
 		typ = typeAcknowledged
 	case *SyncConfigMessage:
 		typ = typeSyncConfig
+	case *PutQueryMessage:
+		typ = typePutQuery
 	default:
 		return fmt.Errorf("unexpected type: %#v", body)
 	}
@@ -56,6 +62,8 @@ func Receive(r io.Reader) (interface{}, error) {
 		body = &AcknowledgedMessage{}
 	case typeSyncConfig:
 		body = &SyncConfigMessage{}
+	case typePutQuery:
+		body = &PutQueryMessage{}
 	default:
 		return nil, fmt.Errorf("unexpected type: %#v", typ)
 	}
