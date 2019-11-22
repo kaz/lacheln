@@ -87,6 +87,16 @@ func main() {
 							},
 						},
 					},
+					{
+						Name:   "metrics",
+						Action: hq.ActionMetrics,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "config",
+								Required: true,
+							},
+						},
+					},
 				},
 			},
 		},

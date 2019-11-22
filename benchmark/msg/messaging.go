@@ -20,6 +20,12 @@ type (
 	BenchmarkStartMessage struct {
 		Config *BenchmarkConfig
 	}
+	MetricsRequestMessage struct {
+	}
+	MetricsResponseMessage struct {
+		Spec    *Spec
+		Metrics []*Metric
+	}
 )
 
 const (
@@ -27,6 +33,8 @@ const (
 	typeAcknowledged
 	typePutQuery
 	typeBenchmarkStart
+	typeMetricsRequest
+	typeMetricsResponse
 )
 
 func Send(w io.Writer, body interface{}) error {
@@ -39,6 +47,10 @@ func Send(w io.Writer, body interface{}) error {
 		typ = typePutQuery
 	case *BenchmarkStartMessage:
 		typ = typeBenchmarkStart
+	case *MetricsRequestMessage:
+		typ = typeMetricsRequest
+	case *MetricsResponseMessage:
+		typ = typeMetricsResponse
 	default:
 		return fmt.Errorf("unexpected type: %#v", body)
 	}
@@ -65,6 +77,10 @@ func Receive(r io.Reader) (interface{}, error) {
 		body = &PutQueryMessage{}
 	case typeBenchmarkStart:
 		body = &BenchmarkStartMessage{}
+	case typeMetricsRequest:
+		body = &MetricsRequestMessage{}
+	case typeMetricsResponse:
+		body = &MetricsResponseMessage{}
 	default:
 		return nil, fmt.Errorf("unexpected type: %#v", typ)
 	}
