@@ -49,20 +49,26 @@ func (w *worker) Start() error {
 		if err != nil {
 			return fmt.Errorf("listener.Accept failed: %w", err)
 		}
-		go func() {
-			if err := w.handle(conn); err != nil {
-				fmt.Fprintf(os.Stderr, "handle exits with error: %v\n", err)
-			}
-		}()
+		go w.handle(conn)
 	}
 }
 
-func (w *worker) handle(c net.Conn) error {
+func (w *worker) handle(c net.Conn) {
 	defer c.Close()
+	defer func() {
+		if err := recover(); err != nil {
+			detail := fmt.Sprintf("handling error: %v", err)
+			fmt.Fprintln(os.Stderr, detail)
+
+			if err := msg.Send(c, &msg.AcknowledgedMessage{Status: "NG", Detail: detail}); err != nil {
+				fmt.Fprintf(os.Stderr, "sending error message failed: msg.Send failed: %v", err)
+			}
+		}
+	}()
 
 	rawBody, err := msg.Receive(c)
 	if err != nil {
-		return fmt.Errorf("msg.Receive failed: %w", err)
+		panic(fmt.Errorf("msg.Receive failed: %w", err))
 	}
 
 	var resp interface{}
@@ -82,12 +88,10 @@ func (w *worker) handle(c net.Conn) error {
 
 		fmt.Println(detail)
 	} else {
-		return fmt.Errorf("unexpected message type: %v", rawBody)
+		panic(fmt.Errorf("unexpected message type: %v", rawBody))
 	}
 
 	if err := msg.Send(c, resp); err != nil {
-		return fmt.Errorf("msg.Send failed: %w", err)
+		panic(fmt.Errorf("msg.Send failed: %w", err))
 	}
-
-	return nil
 }
