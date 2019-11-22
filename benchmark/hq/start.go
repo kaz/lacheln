@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func ActionSync(context *cli.Context) error {
+func ActionStart(context *cli.Context) error {
 	rawConfig, err := ioutil.ReadFile(context.String("config"))
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadFile failed: %w", err)
@@ -32,7 +32,7 @@ func ActionSync(context *cli.Context) error {
 	for _, worker := range hqConf.Workers {
 		wg.Add(1)
 		go func(worker string) {
-			if err := doSync(worker, workerConf); err != nil {
+			if err := start(worker, workerConf); err != nil {
 				fmt.Fprintf(os.Stderr, "sync failed: %v\n", err)
 			}
 			wg.Done()
@@ -43,14 +43,14 @@ func ActionSync(context *cli.Context) error {
 	return nil
 }
 
-func doSync(worker string, conf *msg.WorkerConfig) error {
+func start(worker string, conf *msg.WorkerConfig) error {
 	conn, err := net.Dial("tcp4", worker)
 	if err != nil {
 		return fmt.Errorf("new.Dial failed: %w", err)
 	}
 	defer conn.Close()
 
-	if err := msg.Send(conn, &msg.SyncConfigMessage{Config: conf}); err != nil {
+	if err := msg.Send(conn, &msg.BenchmarkStartMessage{Config: conf}); err != nil {
 		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 
@@ -64,6 +64,6 @@ func doSync(worker string, conf *msg.WorkerConfig) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	fmt.Printf("[%v] worker %v -> %v", ack.Status, worker, ack.Detail)
+	fmt.Printf("[%v] worker %v -> %v\n", ack.Status, worker, ack.Detail)
 	return nil
 }

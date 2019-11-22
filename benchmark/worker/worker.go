@@ -73,17 +73,18 @@ func (w *worker) handle(c net.Conn) {
 
 	var resp interface{}
 
-	if body, ok := rawBody.(*msg.SyncConfigMessage); ok {
-		w.config = body.Config
-
-		detail := fmt.Sprintf("received config: %+v", w.config)
-		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
-
-		fmt.Println(detail)
-	} else if body, ok := rawBody.(*msg.PutQueryMessage); ok {
+	if body, ok := rawBody.(*msg.PutQueryMessage); ok {
 		w.queries = body.Query
 
 		detail := fmt.Sprintf("received %v queries", len(w.queries))
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
+
+		fmt.Println(detail)
+	} else if body, ok := rawBody.(*msg.BenchmarkStartMessage); ok {
+		w.config = body.Config
+		go w.benchmark()
+
+		detail := fmt.Sprintf("benchmark was started with config: %+v", w.config)
 		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
 
 		fmt.Println(detail)

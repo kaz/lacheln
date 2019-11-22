@@ -49,7 +49,7 @@ func ActionPut(context *cli.Context) error {
 			if (i+1)*size < last {
 				last = (i + 1) * size
 			}
-			if err := doPut(worker, query.Query[i*size:last]); err != nil {
+			if err := put(worker, query.Query[i*size:last]); err != nil {
 				fmt.Fprintf(os.Stderr, "sync failed: %v\n", err)
 			}
 			wg.Done()
@@ -60,7 +60,7 @@ func ActionPut(context *cli.Context) error {
 	return nil
 }
 
-func doPut(worker string, queries []*msg.Query) error {
+func put(worker string, queries []*msg.Query) error {
 	conn, err := net.Dial("tcp4", worker)
 	if err != nil {
 		return fmt.Errorf("new.Dial failed: %w", err)
@@ -81,6 +81,6 @@ func doPut(worker string, queries []*msg.Query) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	fmt.Printf("[%v] worker %v -> %v", ack.Status, worker, ack.Detail)
+	fmt.Printf("[%v] worker %v -> %v\n", ack.Status, worker, ack.Detail)
 	return nil
 }

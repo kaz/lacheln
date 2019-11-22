@@ -14,19 +14,19 @@ type (
 		Status string
 		Detail string
 	}
-	SyncConfigMessage struct {
-		Config *WorkerConfig
-	}
 	PutQueryMessage struct {
 		Query []*Query
+	}
+	BenchmarkStartMessage struct {
+		Config *WorkerConfig
 	}
 )
 
 const (
 	typeUnknown MessageType = iota
 	typeAcknowledged
-	typeSyncConfig
 	typePutQuery
+	typeBenchmarkStart
 )
 
 func Send(w io.Writer, body interface{}) error {
@@ -35,10 +35,10 @@ func Send(w io.Writer, body interface{}) error {
 	switch body.(type) {
 	case *AcknowledgedMessage:
 		typ = typeAcknowledged
-	case *SyncConfigMessage:
-		typ = typeSyncConfig
 	case *PutQueryMessage:
 		typ = typePutQuery
+	case *BenchmarkStartMessage:
+		typ = typeBenchmarkStart
 	default:
 		return fmt.Errorf("unexpected type: %#v", body)
 	}
@@ -61,10 +61,10 @@ func Receive(r io.Reader) (interface{}, error) {
 	switch typ {
 	case typeAcknowledged:
 		body = &AcknowledgedMessage{}
-	case typeSyncConfig:
-		body = &SyncConfigMessage{}
 	case typePutQuery:
 		body = &PutQueryMessage{}
+	case typeBenchmarkStart:
+		body = &BenchmarkStartMessage{}
 	default:
 		return nil, fmt.Errorf("unexpected type: %#v", typ)
 	}

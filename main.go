@@ -63,15 +63,6 @@ func main() {
 				Name: "hq",
 				Subcommands: []*cli.Command{
 					{
-						Name:   "sync",
-						Action: hq.ActionSync,
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name: "config",
-							},
-						},
-					},
-					{
 						Name:   "put",
 						Action: hq.ActionPut,
 						Flags: []cli.Flag{
@@ -80,6 +71,15 @@ func main() {
 							},
 							&cli.StringFlag{
 								Name: "input",
+							},
+						},
+					},
+					{
+						Name:   "start",
+						Action: hq.ActionStart,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name: "config",
 							},
 						},
 					},
