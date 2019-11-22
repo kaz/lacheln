@@ -81,6 +81,6 @@ func doPut(worker string, queries []*msg.Query) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	fmt.Printf("worker %v acknowledged: %+v", worker, ack)
+	fmt.Printf("[%v] worker %v -> %v", ack.Status, worker, ack.Detail)
 	return nil
 }

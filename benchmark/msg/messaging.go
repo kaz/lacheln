@@ -11,7 +11,8 @@ type (
 	MessageType byte
 
 	AcknowledgedMessage struct {
-		OK bool
+		Status string
+		Detail string
 	}
 	SyncConfigMessage struct {
 		Config *WorkerConfig

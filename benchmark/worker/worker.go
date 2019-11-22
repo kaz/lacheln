@@ -69,12 +69,18 @@ func (w *worker) handle(c net.Conn) error {
 
 	if body, ok := rawBody.(*msg.SyncConfigMessage); ok {
 		w.config = body.Config
-		resp = &msg.AcknowledgedMessage{OK: true}
-		fmt.Printf("received config: %#v\n", w.config)
+
+		detail := fmt.Sprintf("received config: %+v", w.config)
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
+
+		fmt.Println(detail)
 	} else if body, ok := rawBody.(*msg.PutQueryMessage); ok {
 		w.queries = body.Query
-		resp = &msg.AcknowledgedMessage{OK: true}
-		fmt.Printf("received %v queries\n", len(w.queries))
+
+		detail := fmt.Sprintf("received %v queries", len(w.queries))
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
+
+		fmt.Println(detail)
 	} else {
 		return fmt.Errorf("unexpected message type: %v", rawBody)
 	}
