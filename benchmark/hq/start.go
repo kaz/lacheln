@@ -33,7 +33,7 @@ func ActionStart(context *cli.Context) error {
 		wg.Add(1)
 		go func(worker string) {
 			if err := start(worker, benchConf); err != nil {
-				fmt.Fprintf(os.Stderr, "sync failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "start failed: %v\n", err)
 			}
 			wg.Done()
 		}(worker)

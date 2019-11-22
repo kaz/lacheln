@@ -50,7 +50,7 @@ func ActionPut(context *cli.Context) error {
 				last = (i + 1) * size
 			}
 			if err := put(worker, query.Query[i*size:last]); err != nil {
-				fmt.Fprintf(os.Stderr, "sync failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "put failed: %v\n", err)
 			}
 			wg.Done()
 		}(i, worker)
