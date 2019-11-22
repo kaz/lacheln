@@ -18,21 +18,21 @@ func ActionStart(context *cli.Context) error {
 		return fmt.Errorf("ioutil.ReadFile failed: %w", err)
 	}
 
-	workerConf := &msg.WorkerConfig{}
-	if err := yaml.Unmarshal(rawConfig, workerConf); err != nil {
+	conf := &config{}
+	if err := yaml.Unmarshal(rawConfig, conf); err != nil {
 		return fmt.Errorf("yaml.Unmarshal failed: %w", err)
 	}
 
-	hqConf := &hqConfig{}
-	if err := yaml.Unmarshal(rawConfig, hqConf); err != nil {
+	benchConf := &msg.BenchmarkConfig{}
+	if err := yaml.Unmarshal(rawConfig, benchConf); err != nil {
 		return fmt.Errorf("yaml.Unmarshal failed: %w", err)
 	}
 
 	wg := &sync.WaitGroup{}
-	for _, worker := range hqConf.Workers {
+	for _, worker := range conf.Workers {
 		wg.Add(1)
 		go func(worker string) {
-			if err := start(worker, workerConf); err != nil {
+			if err := start(worker, benchConf); err != nil {
 				fmt.Fprintf(os.Stderr, "sync failed: %v\n", err)
 			}
 			wg.Done()
@@ -43,7 +43,7 @@ func ActionStart(context *cli.Context) error {
 	return nil
 }
 
-func start(worker string, conf *msg.WorkerConfig) error {
+func start(worker string, conf *msg.BenchmarkConfig) error {
 	conn, err := net.Dial("tcp4", worker)
 	if err != nil {
 		return fmt.Errorf("new.Dial failed: %w", err)

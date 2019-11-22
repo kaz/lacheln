@@ -1,7 +1,7 @@
 package hq
 
 type (
-	hqConfig struct {
+	config struct {
 		Workers []string
 	}
 )

@@ -18,8 +18,8 @@ func ActionPut(context *cli.Context) error {
 		return fmt.Errorf("ioutil.ReadFile failed: %w", err)
 	}
 
-	hqConf := &hqConfig{}
-	if err := yaml.Unmarshal(rawConfig, hqConf); err != nil {
+	conf := &config{}
+	if err := yaml.Unmarshal(rawConfig, conf); err != nil {
 		return fmt.Errorf("yaml.Unmarshal failed: %w", err)
 	}
 
@@ -39,10 +39,10 @@ func ActionPut(context *cli.Context) error {
 		return fmt.Errorf("invalid data format")
 	}
 
-	size := len(query.Query) / len(hqConf.Workers)
+	size := len(query.Query) / len(conf.Workers)
 
 	wg := &sync.WaitGroup{}
-	for i, worker := range hqConf.Workers {
+	for i, worker := range conf.Workers {
 		wg.Add(1)
 		go func(i int, worker string) {
 			last := len(query.Query)

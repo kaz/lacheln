@@ -1,7 +1,7 @@
 package msg
 
 type (
-	WorkerConfig struct {
+	BenchmarkConfig struct {
 		Connections int
 
 		RWServers []string `yaml:"rw_servers"`

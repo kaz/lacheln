@@ -13,9 +13,7 @@ import (
 type (
 	worker struct {
 		listener net.Listener
-
-		config  *msg.WorkerConfig
-		queries []*msg.Query
+		benchmarker
 	}
 )
 

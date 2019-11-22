@@ -18,7 +18,7 @@ type (
 		Query []*Query
 	}
 	BenchmarkStartMessage struct {
-		Config *WorkerConfig
+		Config *BenchmarkConfig
 	}
 )
 
