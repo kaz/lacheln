@@ -1,5 +1,9 @@
 package msg
 
+import (
+	"time"
+)
+
 type (
 	BenchmarkConfig struct {
 		Threads   int
@@ -15,5 +19,17 @@ type (
 	Query struct {
 		RO  bool
 		SQL string
+	}
+
+	Spec struct {
+		Total   int
+		Current int
+	}
+	Metric struct {
+		Start  time.Time
+		Finish time.Time
+
+		Fail    int
+		Success int
 	}
 )

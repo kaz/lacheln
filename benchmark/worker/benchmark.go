@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/kaz/sql-replay/benchmark/msg"
@@ -15,17 +16,17 @@ type (
 		config  *msg.BenchmarkConfig
 		queries []*msg.Query
 
-		now  int32
-		fail int32
+		now int32
 
 		rwConn []*sql.DB
 		roConn []*sql.DB
+
+		metrics []*msg.Metric
 	}
 )
 
 func (b *benchmarker) startBenchmark() error {
 	b.now = 0
-	b.fail = 0
 
 	b.rwConn = []*sql.DB{}
 	for _, h := range b.config.RWServers {
@@ -47,13 +48,20 @@ func (b *benchmarker) startBenchmark() error {
 		b.roConn = append(b.roConn, conn)
 	}
 
+	b.metrics = []*msg.Metric{}
 	for i := 0; i < b.config.Threads; i++ {
-		go b.benchmark()
+		metric := &msg.Metric{}
+		b.metrics = append(b.metrics, metric)
+
+		go b.benchmark(metric)
 	}
+
 	return nil
 }
 
-func (b *benchmarker) benchmark() {
+func (b *benchmarker) benchmark(metric *msg.Metric) {
+	metric.Start = time.Now()
+
 	for {
 		i := int(atomic.AddInt32(&b.now, 1))
 		if i >= len(b.queries) {
@@ -69,10 +77,13 @@ func (b *benchmarker) benchmark() {
 		rows, err := db.Query(query.SQL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "db.Query failed: %v\n", err)
-			atomic.AddInt32(&b.fail, 1)
+			metric.Fail += 1
+		} else {
+			metric.Success += 1
 		}
 
 		rows.Close()
 	}
-	fmt.Println("benchmark thread successfully terminated")
+
+	metric.Finish = time.Now()
 }
