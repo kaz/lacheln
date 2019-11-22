@@ -43,7 +43,8 @@ func main() {
 				Action: duplicate.Action,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name: "input",
+						Name:     "input",
+						Required: true,
 					},
 					&cli.StringFlag{
 						Name: "output",
@@ -67,10 +68,12 @@ func main() {
 						Action: hq.ActionPut,
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name: "config",
+								Name:     "config",
+								Required: true,
 							},
 							&cli.StringFlag{
-								Name: "input",
+								Name:     "input",
+								Required: true,
 							},
 						},
 					},
@@ -79,7 +82,8 @@ func main() {
 						Action: hq.ActionStart,
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name: "config",
+								Name:     "config",
+								Required: true,
 							},
 						},
 					},
