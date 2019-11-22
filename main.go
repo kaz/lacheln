@@ -71,6 +71,18 @@ func main() {
 							},
 						},
 					},
+					{
+						Name:   "put",
+						Action: hq.ActionPut,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name: "config",
+							},
+							&cli.StringFlag{
+								Name: "input",
+							},
+						},
+					},
 				},
 			},
 		},
