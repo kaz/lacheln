@@ -55,7 +55,7 @@ func (b *benchmarker) startBenchmark() error {
 		b.roConn = append(b.roConn, conn)
 	}
 
-	b.now = 0
+	b.now = -1
 	b.wg = &sync.WaitGroup{}
 
 	b.metrics = []*msg.Metric{}
