@@ -80,9 +80,8 @@ func (b *benchmarker) benchmark(metric *msg.Metric) {
 			metric.Fail += 1
 		} else {
 			metric.Success += 1
+			rows.Close()
 		}
-
-		rows.Close()
 	}
 
 	metric.Finish = time.Now()
