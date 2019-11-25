@@ -2,43 +2,71 @@ package hq
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
-	"sync"
+	"time"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/kaz/sql-replay/benchmark/msg"
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
+)
+
+type (
+	collector struct {
+		specCh       chan *msg.Spec
+		mergedSpec   *msg.Spec
+		metricCh     chan *msg.Metric
+		mergedMetric *msg.Metric
+	}
 )
 
 func ActionMetrics(context *cli.Context) error {
-	rawConfig, err := ioutil.ReadFile(context.String("config"))
+	conf, err := readConfig(context.String("config"))
 	if err != nil {
-		return fmt.Errorf("ioutil.ReadFile failed: %w", err)
+		return fmt.Errorf("readConfig failed: %w", err)
 	}
 
-	conf := &config{}
-	if err := yaml.Unmarshal(rawConfig, conf); err != nil {
-		return fmt.Errorf("yaml.Unmarshal failed: %w", err)
-	}
+	c := &collector{make(chan *msg.Spec), &msg.Spec{}, make(chan *msg.Metric), &msg.Metric{}}
+	go c.startReceiver()
 
-	wg := &sync.WaitGroup{}
-	for _, worker := range conf.Workers {
-		wg.Add(1)
-		go func(worker string) {
-			if err := fetchMetrics(worker); err != nil {
-				fmt.Fprintf(os.Stderr, "fetch metrics failed: %v\n", err)
-			}
-			wg.Done()
-		}(worker)
-	}
+	broadcast(conf.Workers, c.collect)
 
-	wg.Wait()
+	c.printMetrics()
 	return nil
 }
 
-func fetchMetrics(worker string) error {
+func (c *collector) printMetrics() {
+	pb.New(c.mergedSpec.Total).Add(c.mergedSpec.Current).Write()
+	fmt.Printf("Failed    : %9d\n", c.mergedMetric.Fail)
+	fmt.Printf("Succeeded : %9d\n", c.mergedMetric.Success)
+
+	finish := c.mergedMetric.Finish
+	if finish.IsZero() {
+		finish = time.Now()
+	}
+	fmt.Printf("QPS       : %v\n", float64(c.mergedMetric.Success)/finish.Sub(c.mergedMetric.Start).Seconds())
+}
+
+func (c *collector) startReceiver() {
+	for {
+		select {
+		case spec := <-c.specCh:
+			c.mergedSpec.Total += spec.Total
+			c.mergedSpec.Current += spec.Current
+		case metric := <-c.metricCh:
+			c.mergedMetric.Fail += metric.Fail
+			c.mergedMetric.Success += metric.Success
+
+			if c.mergedMetric.Start.IsZero() || metric.Start.Before(c.mergedMetric.Start) {
+				c.mergedMetric.Start = metric.Start
+			}
+			if c.mergedMetric.Finish.IsZero() || metric.Finish.After(c.mergedMetric.Finish) {
+				c.mergedMetric.Finish = metric.Finish
+			}
+		}
+	}
+}
+
+func (c *collector) collect(i int, worker string) error {
 	conn, err := net.Dial("tcp4", worker)
 	if err != nil {
 		return fmt.Errorf("new.Dial failed: %w", err)
@@ -59,6 +87,10 @@ func fetchMetrics(worker string) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	fmt.Printf("worker %v -> %v%%\n", worker, float64(resp.Spec.Current)/float64(resp.Spec.Total)*100.0)
+	c.specCh <- resp.Spec
+	for _, m := range resp.Metrics {
+		c.metricCh <- m
+	}
+
 	return nil
 }
