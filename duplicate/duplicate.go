@@ -36,29 +36,10 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("yaml.Decoder.Decode failed: %w", err)
 	}
 
-	queries := []*msg.Query{}
-	for _, ent := range entries {
-		for i := 0; i < ent.Count; i++ {
-			vals := []interface{}{}
-			if ent.Replace != nil {
-				for _, rep := range ent.Replace {
-					args := []string{}
-					if rep.Args != nil {
-						args = rep.Args
-					}
+	d := newDuplicator(entries)
+	d.duplicate()
 
-					dummy, err := getDummy(rep.Key, args...)
-					if err != nil {
-						return fmt.Errorf("getDummy failed: %w", err)
-					}
-
-					vals = append(vals, dummy)
-				}
-			}
-			queries = append(queries, &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)})
-		}
-	}
-
+	queries := d.queries
 	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
 
 	var out io.Writer = os.Stdout
