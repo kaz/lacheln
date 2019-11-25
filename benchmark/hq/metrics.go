@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/cheggaaa/pb/v3"
@@ -14,10 +15,12 @@ import (
 
 type (
 	collector struct {
-		specCh       chan *msg.Spec
-		mergedSpec   *msg.Spec
-		metricCh     chan *msg.Metric
-		mergedMetric *msg.Metric
+		workers []string
+
+		mu *sync.Mutex
+
+		spec   *msg.Spec
+		metric *msg.Metric
 	}
 )
 
@@ -27,19 +30,21 @@ func ActionMetrics(context *cli.Context) error {
 		return fmt.Errorf("readConfig failed: %w", err)
 	}
 
-	c := &collector{make(chan *msg.Spec), &msg.Spec{}, make(chan *msg.Metric), &msg.Metric{}}
-	go c.startReceiver()
+	c := &collector{
+		workers: conf.Workers,
+		mu:      &sync.Mutex{},
+	}
 
 	if context.Bool("progress") {
-		c.Progress(conf)
+		c.Progress()
 	} else {
-		c.Oneshot(conf)
+		c.Oneshot()
 	}
 
 	return nil
 }
 
-func (c *collector) Progress(conf *config) {
+func (c *collector) Progress() {
 	go func() {
 		ch := make(chan os.Signal)
 		signal.Notify(ch, os.Interrupt)
@@ -47,49 +52,32 @@ func (c *collector) Progress(conf *config) {
 		os.Exit(0)
 	}()
 
-	progress := pb.New(0).Start()
+	progress := pb.Full.New(0).Start()
 
 	for {
-		c.mergedSpec = &msg.Spec{}
-		c.mergedMetric = &msg.Metric{}
-		broadcast(conf.Workers, c.collect)
-
-		progress.SetTotal(int64(c.mergedSpec.Total)).SetCurrent(int64(c.mergedSpec.Current))
+		c.fetch()
+		progress.SetTotal(int64(c.spec.Total)).SetCurrent(int64(c.spec.Current))
 		time.Sleep(1 * time.Second)
 	}
 }
-func (c *collector) Oneshot(conf *config) {
-	broadcast(conf.Workers, c.collect)
+func (c *collector) Oneshot() {
+	c.fetch()
 
-	fmt.Printf("Progress  : %7.2f %% (%d/%d)\n", 100*float64(c.mergedSpec.Current)/float64(c.mergedSpec.Total), c.mergedSpec.Current, c.mergedSpec.Total)
-	fmt.Printf("Failed    : %9d\n", c.mergedMetric.Fail)
-	fmt.Printf("Succeeded : %9d\n", c.mergedMetric.Success)
+	fmt.Printf("Progress  : %7.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
+	fmt.Printf("Failed    : %9d\n", c.metric.Fail)
+	fmt.Printf("Succeeded : %9d\n", c.metric.Success)
 
-	finish := c.mergedMetric.Finish
+	finish := c.metric.Finish
 	if finish.IsZero() {
 		finish = time.Now()
 	}
-	fmt.Printf("QPS       : %9.0f\n", float64(c.mergedMetric.Success)/finish.Sub(c.mergedMetric.Start).Seconds())
+	fmt.Printf("QPS       : %9.0f\n", float64(c.metric.Success)/finish.Sub(c.metric.Start).Seconds())
 }
 
-func (c *collector) startReceiver() {
-	for {
-		select {
-		case spec := <-c.specCh:
-			c.mergedSpec.Total += spec.Total
-			c.mergedSpec.Current += spec.Current
-		case metric := <-c.metricCh:
-			c.mergedMetric.Fail += metric.Fail
-			c.mergedMetric.Success += metric.Success
-
-			if c.mergedMetric.Start.IsZero() || metric.Start.Before(c.mergedMetric.Start) {
-				c.mergedMetric.Start = metric.Start
-			}
-			if c.mergedMetric.Finish.IsZero() || metric.Finish.After(c.mergedMetric.Finish) {
-				c.mergedMetric.Finish = metric.Finish
-			}
-		}
-	}
+func (c *collector) fetch() {
+	c.spec = &msg.Spec{}
+	c.metric = &msg.Metric{}
+	broadcast(c.workers, c.collect)
 }
 
 func (c *collector) collect(i int, worker string) error {
@@ -113,10 +101,26 @@ func (c *collector) collect(i int, worker string) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	c.specCh <- resp.Spec
-	for _, m := range resp.Metrics {
-		c.metricCh <- m
-	}
-
+	c.merge(resp.Spec, resp.Metrics)
 	return nil
+}
+
+func (c *collector) merge(spec *msg.Spec, metrics []*msg.Metric) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.spec.Total += spec.Total
+	c.spec.Current += spec.Current
+
+	for _, metric := range metrics {
+		c.metric.Fail += metric.Fail
+		c.metric.Success += metric.Success
+
+		if c.metric.Start.IsZero() || metric.Start.Before(c.metric.Start) {
+			c.metric.Start = metric.Start
+		}
+		if c.metric.Finish.IsZero() || metric.Finish.After(c.metric.Finish) {
+			c.metric.Finish = metric.Finish
+		}
+	}
 }
