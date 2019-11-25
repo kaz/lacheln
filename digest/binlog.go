@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/siddontang/go-mysql/replication"
 )
@@ -33,7 +34,11 @@ func (qs *BinlogQuerySource) Query() chan string {
 	go func() {
 		err := replication.NewBinlogParser().ParseReader(qs.file, func(event *replication.BinlogEvent) error {
 			if queryEvent, ok := event.Event.(*replication.QueryEvent); ok {
-				ch <- string(queryEvent.Query)
+				query := string(queryEvent.Query)
+				// ignore pseudo gtid
+				if !strings.HasPrefix(query, "drop view if exists `_pseudo_gtid_`") {
+					ch <- query
+				}
 			}
 			return nil
 		})
