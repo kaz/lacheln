@@ -3,6 +3,8 @@ package hq
 import (
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/cheggaaa/pb/v3"
@@ -28,14 +30,38 @@ func ActionMetrics(context *cli.Context) error {
 	c := &collector{make(chan *msg.Spec), &msg.Spec{}, make(chan *msg.Metric), &msg.Metric{}}
 	go c.startReceiver()
 
-	broadcast(conf.Workers, c.collect)
+	if context.Bool("progress") {
+		c.Progress(conf)
+	} else {
+		c.Oneshot(conf)
+	}
 
-	c.printMetrics()
 	return nil
 }
 
-func (c *collector) printMetrics() {
-	pb.New(c.mergedSpec.Total).Add(c.mergedSpec.Current).Write()
+func (c *collector) Progress(conf *config) {
+	go func() {
+		ch := make(chan os.Signal)
+		signal.Notify(ch, os.Interrupt)
+		<-ch
+		os.Exit(0)
+	}()
+
+	progress := pb.New(0).Start()
+
+	for {
+		c.mergedSpec = &msg.Spec{}
+		c.mergedMetric = &msg.Metric{}
+		broadcast(conf.Workers, c.collect)
+
+		progress.SetTotal(int64(c.mergedSpec.Total)).SetCurrent(int64(c.mergedSpec.Current))
+		time.Sleep(1 * time.Second)
+	}
+}
+func (c *collector) Oneshot(conf *config) {
+	broadcast(conf.Workers, c.collect)
+
+	fmt.Printf("Progress  : %7.2f %% (%d/%d)\n", 100*float64(c.mergedSpec.Current)/float64(c.mergedSpec.Total), c.mergedSpec.Current, c.mergedSpec.Total)
 	fmt.Printf("Failed    : %9d\n", c.mergedMetric.Fail)
 	fmt.Printf("Succeeded : %9d\n", c.mergedMetric.Success)
 
@@ -43,7 +69,7 @@ func (c *collector) printMetrics() {
 	if finish.IsZero() {
 		finish = time.Now()
 	}
-	fmt.Printf("QPS       : %v\n", float64(c.mergedMetric.Success)/finish.Sub(c.mergedMetric.Start).Seconds())
+	fmt.Printf("QPS       : %9.0f\n", float64(c.mergedMetric.Success)/finish.Sub(c.mergedMetric.Start).Seconds())
 }
 
 func (c *collector) startReceiver() {
