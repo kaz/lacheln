@@ -34,6 +34,9 @@ func main() {
 						Name: "pcap",
 					},
 					&cli.StringFlag{
+						Name: "binlog",
+					},
+					&cli.StringFlag{
 						Name: "output",
 					},
 				},

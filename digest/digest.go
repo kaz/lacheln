@@ -46,6 +46,14 @@ func Action(context *cli.Context) error {
 		defer pcap.Close()
 
 		qs = pcap
+	} else if context.String("binlog") != "" {
+		binlog, err := NewBinlogQuerySource(context.String("binlog"))
+		if err != nil {
+			return fmt.Errorf("NewBinlogQuerySource failed: %w", err)
+		}
+		defer binlog.Close()
+
+		qs = binlog
 	} else {
 		return fmt.Errorf("no query source was specified")
 	}
