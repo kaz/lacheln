@@ -17,7 +17,8 @@ type (
 	PutQueryMessage struct {
 		Query []*Query
 	}
-	BenchmarkStartMessage struct {
+	BenchmarkJobMessage struct {
+		Mode   string
 		Config *BenchmarkConfig
 	}
 	MetricsRequestMessage struct {
@@ -32,7 +33,7 @@ const (
 	typeUnknown MessageType = iota
 	typeAcknowledged
 	typePutQuery
-	typeBenchmarkStart
+	typeBenchmarkJob
 	typeMetricsRequest
 	typeMetricsResponse
 )
@@ -45,8 +46,8 @@ func Send(w io.Writer, body interface{}) error {
 		typ = typeAcknowledged
 	case *PutQueryMessage:
 		typ = typePutQuery
-	case *BenchmarkStartMessage:
-		typ = typeBenchmarkStart
+	case *BenchmarkJobMessage:
+		typ = typeBenchmarkJob
 	case *MetricsRequestMessage:
 		typ = typeMetricsRequest
 	case *MetricsResponseMessage:
@@ -75,8 +76,8 @@ func Receive(r io.Reader) (interface{}, error) {
 		body = &AcknowledgedMessage{}
 	case typePutQuery:
 		body = &PutQueryMessage{}
-	case typeBenchmarkStart:
-		body = &BenchmarkStartMessage{}
+	case typeBenchmarkJob:
+		body = &BenchmarkJobMessage{}
 	case typeMetricsRequest:
 		body = &MetricsRequestMessage{}
 	case typeMetricsResponse:

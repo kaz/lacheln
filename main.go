@@ -78,11 +78,15 @@ func main() {
 						},
 					},
 					{
-						Name:   "start",
-						Action: hq.ActionStart,
+						Name:   "job",
+						Action: hq.ActionJob,
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "config",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "mode",
 								Required: true,
 							},
 						},
@@ -103,7 +107,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(-1)
 	}
 }

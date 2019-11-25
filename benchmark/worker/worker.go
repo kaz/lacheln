@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -56,10 +57,10 @@ func (w *worker) handle(c net.Conn) {
 	defer func() {
 		if err := recover(); err != nil {
 			detail := fmt.Sprintf("handling error: %v", err)
-			fmt.Fprintln(os.Stderr, detail)
+			log.Println(detail)
 
 			if err := msg.Send(c, &msg.AcknowledgedMessage{Status: "NG", Detail: detail}); err != nil {
-				fmt.Fprintf(os.Stderr, "sending error message failed: msg.Send failed: %v", err)
+				log.Printf("sending error message failed: msg.Send failed: %v\n", err)
 			}
 		}
 	}()
@@ -73,21 +74,23 @@ func (w *worker) handle(c net.Conn) {
 
 	if body, ok := rawBody.(*msg.PutQueryMessage); ok {
 		w.queries = body.Query
-
-		detail := fmt.Sprintf("received %v queries", len(w.queries))
-		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
-
-		fmt.Println(detail)
-	} else if body, ok := rawBody.(*msg.BenchmarkStartMessage); ok {
-		w.config = body.Config
-		if err := w.startBenchmark(); err != nil {
-			panic(fmt.Errorf("starting benchmark failed: %w", err))
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received %v queries", len(w.queries))}
+	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {
+		switch body.Mode {
+		case "start":
+			w.config = body.Config
+			if err := w.startBenchmark(); err != nil {
+				panic(fmt.Errorf("starting benchmark failed: %w", err))
+			}
+			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", w.config)}
+		case "cancel":
+			if err := w.cancelBenchmark(); err != nil {
+				panic(fmt.Errorf("canceling benchmark failed: %w", err))
+			}
+			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: "benchmark was cancelled"}
+		default:
+			panic(fmt.Errorf("unexpected mode: %v", body.Mode))
 		}
-
-		detail := fmt.Sprintf("benchmark was started with config: %+v", w.config)
-		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: detail}
-
-		fmt.Println(detail)
 	} else if _, ok := rawBody.(*msg.MetricsRequestMessage); ok {
 		resp = &msg.MetricsResponseMessage{
 			Spec: &msg.Spec{
@@ -102,5 +105,9 @@ func (w *worker) handle(c net.Conn) {
 
 	if err := msg.Send(c, resp); err != nil {
 		panic(fmt.Errorf("msg.Send failed: %w", err))
+	}
+
+	if ack, ok := resp.(*msg.AcknowledgedMessage); ok {
+		log.Println(ack.Detail)
 	}
 }
