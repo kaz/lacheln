@@ -36,12 +36,12 @@ func broadcast(workers []string, action func(int, string) error) {
 	wg := &sync.WaitGroup{}
 	for i, worker := range workers {
 		wg.Add(1)
-		go func(worker string) {
+		go func(i int, worker string) {
 			if err := action(i, worker); err != nil {
 				log.Printf("action failed: %v\n", err)
 			}
 			wg.Done()
-		}(worker)
+		}(i, worker)
 	}
 	wg.Wait()
 }
