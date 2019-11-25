@@ -56,7 +56,13 @@ func (c *collector) Progress() {
 
 	for {
 		c.fetch()
+
 		progress.SetTotal(int64(c.spec.Total)).SetCurrent(int64(c.spec.Current))
+		if c.spec.Current >= c.spec.Total {
+			progress.Write()
+			break
+		}
+
 		time.Sleep(1 * time.Second)
 	}
 }

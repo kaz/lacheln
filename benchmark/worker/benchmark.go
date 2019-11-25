@@ -73,6 +73,7 @@ func (b *benchmarker) startBenchmark() error {
 			db.Close()
 		}
 
+		b.now = int32(len(b.queries))
 		b.wg = nil
 	}()
 
@@ -91,7 +92,7 @@ func (b *benchmarker) cancelBenchmark() error {
 
 func (b *benchmarker) benchmark(metric *msg.Metric) {
 	metric.Start = time.Now()
-	log.Println("benchmark thread started")
+	log.Println("benchmark thread was spawned")
 
 	for {
 		i := int(atomic.AddInt32(&b.now, 1))
@@ -116,6 +117,6 @@ func (b *benchmarker) benchmark(metric *msg.Metric) {
 	}
 
 	metric.Finish = time.Now()
-	log.Println("benchmark thread finished")
+	log.Println("benchmark thread was terminated")
 	b.wg.Done()
 }
