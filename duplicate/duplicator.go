@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
+	"sync"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/kaz/sql-replay/benchmark/msg"
@@ -16,57 +16,57 @@ type (
 		entries []*Entry
 		queries []*msg.Query
 
-		chEnt chan *Entry
-		chQue chan *msg.Query
-
+		ch chan *Entry
+		mu *sync.Mutex
+		wg *sync.WaitGroup
 		pb *pb.ProgressBar
 	}
 )
 
 func newDuplicator(entries []*Entry) *duplicator {
-	return &duplicator{entries, []*msg.Query{}, make(chan *Entry), make(chan *msg.Query), nil}
+	return &duplicator{entries: entries}
 }
 
-func (d *duplicator) duplicate() {
-	go d.signalHandle()
-	go d.progress()
-	go d.receive()
-	for i := 0; i < 512; i++ {
-		go d.process()
-	}
-	d.dispatch()
-}
-func (d *duplicator) signalHandle() {
+func (d *duplicator) handleInterruptSignal() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, os.Interrupt)
 	<-ch
 	os.Exit(0)
 }
-func (d *duplicator) progress() {
-	var total int64
+
+func (d *duplicator) duplicate() {
+	go d.handleInterruptSignal()
+
+	total := 0
 	for _, ent := range d.entries {
-		total += int64(ent.Count)
+		total += ent.Count
 	}
 
-	d.pb = pb.Full.Start64(total)
+	d.queries = make([]*msg.Query, 0, total)
 
-	for d.pb.Current() < total {
-		time.Sleep(1 * time.Second)
+	d.ch = make(chan *Entry)
+	d.mu = &sync.Mutex{}
+	d.wg = &sync.WaitGroup{}
+	d.pb = pb.Full.Start(total)
+
+	for i := 0; i < 2048; i++ {
+		d.wg.Add(1)
+		go d.process()
 	}
 
-	d.pb.Write().Finish()
-	close(d.chEnt)
-	close(d.chQue)
-}
-func (d *duplicator) dispatch() {
 	for _, ent := range d.entries {
 		for i := 0; i < ent.Count; i++ {
-			d.chEnt <- ent
+			d.ch <- ent
 		}
 	}
+
+	close(d.ch)
+	d.wg.Wait()
+	d.pb.Write().Finish()
 }
+
 func (d *duplicator) process() {
-	for ent := range d.chEnt {
+	for ent := range d.ch {
 		vals := []interface{}{}
 		if ent.Replace != nil {
 			for _, rep := range ent.Replace {
@@ -78,19 +78,18 @@ func (d *duplicator) process() {
 				dummy, err := getDummy(rep.Key, args...)
 				if err != nil {
 					log.Printf("getDummy failed: %v\n", err)
-					d.chEnt <- ent
-					return
+					continue
 				}
 
 				vals = append(vals, dummy)
 			}
 		}
-		d.chQue <- &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)}
-	}
-}
-func (d *duplicator) receive() {
-	for que := range d.chQue {
-		d.queries = append(d.queries, que)
+
+		d.mu.Lock()
+		d.queries = append(d.queries, &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)})
+		d.mu.Unlock()
+
 		d.pb.Increment()
 	}
+	d.wg.Done()
 }
