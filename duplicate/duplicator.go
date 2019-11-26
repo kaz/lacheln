@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/kaz/sql-replay/benchmark/msg"
@@ -16,15 +17,21 @@ type (
 		entries []*Entry
 		queries []*msg.Query
 
-		ch chan *Entry
-		mu *sync.Mutex
-		wg *sync.WaitGroup
-		pb *pb.ProgressBar
+		ptr int32
+		wg  *sync.WaitGroup
+		pb  *pb.ProgressBar
 	}
 )
 
 func newDuplicator(entries []*Entry) *duplicator {
-	return &duplicator{entries: entries}
+	flat := []*Entry{}
+	for _, ent := range entries {
+		for i := 0; i < ent.Count; i++ {
+			flat = append(flat, ent)
+		}
+	}
+
+	return &duplicator{entries: flat, queries: make([]*msg.Query, len(flat))}
 }
 
 func (d *duplicator) handleInterruptSignal() {
@@ -37,36 +44,28 @@ func (d *duplicator) handleInterruptSignal() {
 func (d *duplicator) duplicate() {
 	go d.handleInterruptSignal()
 
-	total := 0
-	for _, ent := range d.entries {
-		total += ent.Count
-	}
-
-	d.queries = make([]*msg.Query, 0, total)
-
-	d.ch = make(chan *Entry)
-	d.mu = &sync.Mutex{}
+	d.ptr = -1
 	d.wg = &sync.WaitGroup{}
-	d.pb = pb.Full.Start(total)
+	d.pb = pb.Full.Start(len(d.entries))
 
 	for i := 0; i < 2048; i++ {
 		d.wg.Add(1)
 		go d.process()
 	}
 
-	for _, ent := range d.entries {
-		for i := 0; i < ent.Count; i++ {
-			d.ch <- ent
-		}
-	}
-
-	close(d.ch)
 	d.wg.Wait()
 	d.pb.Write().Finish()
 }
 
 func (d *duplicator) process() {
-	for ent := range d.ch {
+	for {
+		i := atomic.AddInt32(&d.ptr, 1)
+		if int(i) >= len(d.entries) {
+			break
+		}
+
+		ent := d.entries[i]
+
 		vals := []interface{}{}
 		if ent.Replace != nil {
 			for _, rep := range ent.Replace {
@@ -85,10 +84,7 @@ func (d *duplicator) process() {
 			}
 		}
 
-		d.mu.Lock()
-		d.queries = append(d.queries, &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)})
-		d.mu.Unlock()
-
+		d.queries[i] = &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)}
 		d.pb.Increment()
 	}
 	d.wg.Done()
