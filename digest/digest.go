@@ -6,6 +6,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/percona/go-mysql/query"
 	"github.com/urfave/cli/v2"
@@ -21,10 +23,11 @@ type (
 	Entry struct {
 		ID          string
 		Fingerprint string
-		ReadOnly    bool
-		Query       string
-		Count       int
-		Ratio       float32
+
+		ReadOnly bool
+		Query    string
+		Count    int32
+		Ratio    float32
 	}
 )
 
@@ -59,23 +62,6 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("no query source was specified")
 	}
 
-	entries := []*Entry{}
-	entMap := map[string]*Entry{}
-
-	for q := range qs.Query() {
-		fp := query.Fingerprint(q)
-		id := query.Id(fp)
-
-		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{id, fp + "\n", strings.HasPrefix(fp, "select"), q + "\n", 0, 1.0}
-			entries = append(entries, entMap[fp])
-		}
-
-		entMap[fp].Count += 1
-	}
-
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
-
 	var out io.Writer = os.Stdout
 
 	outFilePath := context.String("output")
@@ -89,8 +75,47 @@ func Action(context *cli.Context) error {
 		out = outFile
 	}
 
-	if err := yaml.NewEncoder(out).Encode(entries); err != nil {
+	if err := yaml.NewEncoder(out).Encode(digest(qs.Query())); err != nil {
 		return fmt.Errorf("yaml.Encoder.Encode failed: %w", err)
 	}
 	return nil
+}
+
+func digest(ch chan string) []*Entry {
+	wg := &sync.WaitGroup{}
+	data := &sync.Map{}
+
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			for sql := range ch {
+				fp := query.Fingerprint(sql)
+
+				newEnt := &Entry{
+					query.Id(fp),
+					fp + "\n",
+					strings.HasPrefix(fp, "select"),
+					sql + "\n",
+					1,
+					1.0,
+				}
+
+				if ent, loaded := data.LoadOrStore(newEnt.ID, newEnt); loaded {
+					atomic.AddInt32(&ent.(*Entry).Count, 1)
+				}
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+
+	entries := []*Entry{}
+	data.Range(func(k, v interface{}) bool {
+		entries = append(entries, v.(*Entry))
+		return true
+	})
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
+	return entries
 }
