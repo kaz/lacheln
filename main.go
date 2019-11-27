@@ -27,7 +27,7 @@ func main() {
 	app := &cli.App{
 
 		Name:    "lacheln",
-		Usage:   "benchmarking tool for db",
+		Usage:   "Database benchmarking toolchain written in Go",
 		Version: Version,
 
 		Commands: []*cli.Command{
