@@ -38,10 +38,7 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("yaml.Decoder.Decode failed: %w", err)
 	}
 
-	d := newDuplicator(entries)
-	d.duplicate()
-
-	queries := d.queries
+	queries := duplicate(entries)
 	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
 
 	var out io.Writer = os.Stdout

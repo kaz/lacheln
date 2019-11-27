@@ -10,6 +10,10 @@ import (
 	"github.com/kaz/sql-replay/benchmark/msg"
 )
 
+const (
+	PROCESSOR_NUM = 2048
+)
+
 type (
 	duplicator struct {
 		entries []*Entry
@@ -21,7 +25,7 @@ type (
 	}
 )
 
-func newDuplicator(entries []*Entry) *duplicator {
+func duplicate(entries []*Entry) []*msg.Query {
 	flat := []*Entry{}
 	for _, ent := range entries {
 		count := int(float32(ent.Count) * ent.Ratio)
@@ -30,21 +34,23 @@ func newDuplicator(entries []*Entry) *duplicator {
 		}
 	}
 
-	return &duplicator{entries: flat, queries: make([]*msg.Query, len(flat))}
-}
+	d := &duplicator{
+		entries: flat,
+		queries: make([]*msg.Query, len(flat)),
+		ptr:     -1,
+		wg:      &sync.WaitGroup{},
+		pb:      pb.Full.Start(len(flat)),
+	}
 
-func (d *duplicator) duplicate() {
-	d.ptr = -1
-	d.wg = &sync.WaitGroup{}
-	d.pb = pb.Full.Start(len(d.entries))
-
-	for i := 0; i < 2048; i++ {
-		d.wg.Add(1)
+	d.wg.Add(PROCESSOR_NUM)
+	for i := 0; i < PROCESSOR_NUM; i++ {
 		go d.process()
 	}
 
 	d.wg.Wait()
 	d.pb.Write().Finish()
+
+	return d.queries
 }
 
 func (d *duplicator) process() {
