@@ -8,6 +8,7 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/kaz/lacheln/benchmark/msg"
+	"github.com/kaz/lacheln/duplicate/dummy"
 )
 
 const (
@@ -70,13 +71,13 @@ func (d *duplicator) process() {
 					args = rep.Args
 				}
 
-				dummy, err := getDummy(rep.Key, args...)
+				val, err := dummy.Get(rep.Key, args...)
 				if err != nil {
 					log.Printf("getDummy failed: %v\n", err)
 					continue
 				}
 
-				vals = append(vals, dummy)
+				vals = append(vals, val)
 			}
 		}
 
