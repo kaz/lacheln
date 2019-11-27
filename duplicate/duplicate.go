@@ -16,7 +16,9 @@ type (
 		ReadOnly bool
 		Query    string
 		Count    int
-		Replace  []*Replace `yaml:",omitempty"`
+		Ratio    float32
+
+		Replace []*Replace `yaml:",omitempty"`
 	}
 	Replace struct {
 		Key  string

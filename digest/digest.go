@@ -24,6 +24,7 @@ type (
 		ReadOnly    bool
 		Query       string
 		Count       int
+		Ratio       float32
 	}
 )
 
@@ -66,7 +67,7 @@ func Action(context *cli.Context) error {
 		id := query.Id(fp)
 
 		if _, ok := entMap[fp]; !ok {
-			entMap[fp] = &Entry{id, fp + "\n", strings.HasPrefix(fp, "select"), q + "\n", 0}
+			entMap[fp] = &Entry{id, fp + "\n", strings.HasPrefix(fp, "select"), q + "\n", 0, 1.0}
 			entries = append(entries, entMap[fp])
 		}
 

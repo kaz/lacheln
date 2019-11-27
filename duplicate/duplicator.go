@@ -24,7 +24,8 @@ type (
 func newDuplicator(entries []*Entry) *duplicator {
 	flat := []*Entry{}
 	for _, ent := range entries {
-		for i := 0; i < ent.Count; i++ {
+		count := int(float32(ent.Count) * ent.Ratio)
+		for i := 0; i < count; i++ {
 			flat = append(flat, ent)
 		}
 	}
