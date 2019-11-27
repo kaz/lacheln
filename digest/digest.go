@@ -6,8 +6,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 
 	"github.com/percona/go-mysql/query"
 	"github.com/urfave/cli/v2"
@@ -26,7 +24,7 @@ type (
 
 		ReadOnly bool
 		Query    string
-		Count    int32
+		Count    int
 		Ratio    float32
 	}
 )
@@ -82,39 +80,23 @@ func Action(context *cli.Context) error {
 }
 
 func digest(ch chan string) []*Entry {
-	wg := &sync.WaitGroup{}
-	data := &sync.Map{}
+	data := map[string]*Entry{}
 
-	for i := 0; i < 16; i++ {
-		wg.Add(1)
-		go func() {
-			for sql := range ch {
-				fp := query.Fingerprint(sql)
+	for sql := range ch {
+		fp := query.Fingerprint(sql)
+		id := query.Id(fp)
 
-				newEnt := &Entry{
-					query.Id(fp),
-					fp + "\n",
-					strings.HasPrefix(fp, "select"),
-					sql + "\n",
-					1,
-					1.0,
-				}
-
-				if ent, loaded := data.LoadOrStore(newEnt.ID, newEnt); loaded {
-					atomic.AddInt32(&ent.(*Entry).Count, 1)
-				}
-			}
-			wg.Done()
-		}()
+		if ent, ok := data[id]; ok {
+			ent.Count += 1
+		} else {
+			data[id] = &Entry{id, fp + "\n", strings.HasPrefix(fp, "select"), sql + "\n", 1, 1.0}
+		}
 	}
 
-	wg.Wait()
-
 	entries := []*Entry{}
-	data.Range(func(k, v interface{}) bool {
-		entries = append(entries, v.(*Entry))
-		return true
-	})
+	for _, ent := range data {
+		entries = append(entries, ent)
+	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
 	return entries
