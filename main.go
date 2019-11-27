@@ -47,6 +47,9 @@ func main() {
 					&cli.StringFlag{
 						Name: "output",
 					},
+					&cli.StringFlag{
+						Name: "export",
+					},
 				},
 			},
 			{

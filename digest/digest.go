@@ -73,16 +73,17 @@ func Action(context *cli.Context) error {
 		out = outFile
 	}
 
-	if err := yaml.NewEncoder(out).Encode(digest(qs.Query())); err != nil {
-		return fmt.Errorf("yaml.Encoder.Encode failed: %w", err)
+	id := context.String("export")
+	if id != "" {
+		return export(out, qs, id)
 	}
-	return nil
+	return digest(out, qs)
 }
 
-func digest(ch chan string) []*Entry {
+func digest(out io.Writer, qs QuerySource) error {
 	data := map[string]*Entry{}
 
-	for sql := range ch {
+	for sql := range qs.Query() {
 		fp := query.Fingerprint(sql)
 		id := query.Id(fp)
 
@@ -99,5 +100,17 @@ func digest(ch chan string) []*Entry {
 	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Count > entries[j].Count })
-	return entries
+
+	if err := yaml.NewEncoder(out).Encode(entries); err != nil {
+		return fmt.Errorf("yaml.Encoder.Encode failed: %w", err)
+	}
+	return nil
+}
+func export(out io.Writer, qs QuerySource, id string) error {
+	for sql := range qs.Query() {
+		if id == query.Id(query.Fingerprint(sql)) {
+			fmt.Fprintf(out, "%s;\n", sql)
+		}
+	}
+	return nil
 }
