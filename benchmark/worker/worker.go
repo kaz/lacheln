@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/kaz/sql-replay/benchmark/msg"
+	"github.com/kaz/lacheln/benchmark/msg"
 	"github.com/urfave/cli/v2"
 )
 

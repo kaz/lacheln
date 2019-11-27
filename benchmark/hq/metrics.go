@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cheggaaa/pb/v3"
-	"github.com/kaz/sql-replay/benchmark/msg"
+	"github.com/kaz/lacheln/benchmark/msg"
 	"github.com/urfave/cli/v2"
 )
 

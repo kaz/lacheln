@@ -1,4 +1,4 @@
-module github.com/kaz/sql-replay
+module github.com/kaz/lacheln
 
 go 1.13
 

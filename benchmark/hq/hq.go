@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/kaz/sql-replay/benchmark/msg"
+	"github.com/kaz/lacheln/benchmark/msg"
 	"gopkg.in/yaml.v2"
 )
 

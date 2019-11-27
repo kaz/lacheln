@@ -6,10 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kaz/sql-replay/benchmark/hq"
-	"github.com/kaz/sql-replay/benchmark/worker"
-	"github.com/kaz/sql-replay/digest"
-	"github.com/kaz/sql-replay/duplicate"
+	"github.com/kaz/lacheln/benchmark/hq"
+	"github.com/kaz/lacheln/benchmark/worker"
+	"github.com/kaz/lacheln/digest"
+	"github.com/kaz/lacheln/duplicate"
 	"github.com/urfave/cli/v2"
 )
 
@@ -26,7 +26,7 @@ func init() {
 func main() {
 	app := &cli.App{
 
-		Name:    "sql-replay",
+		Name:    "lacheln",
 		Usage:   "benchmarking tool for db",
 		Version: Version,
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/kaz/sql-replay/benchmark/msg"
+	"github.com/kaz/lacheln/benchmark/msg"
 )
 
 type (
