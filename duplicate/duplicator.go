@@ -3,8 +3,6 @@ package duplicate
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"sync"
 	"sync/atomic"
 
@@ -34,16 +32,7 @@ func newDuplicator(entries []*Entry) *duplicator {
 	return &duplicator{entries: flat, queries: make([]*msg.Query, len(flat))}
 }
 
-func (d *duplicator) handleInterruptSignal() {
-	ch := make(chan os.Signal)
-	signal.Notify(ch, os.Interrupt)
-	<-ch
-	os.Exit(0)
-}
-
 func (d *duplicator) duplicate() {
-	go d.handleInterruptSignal()
-
 	d.ptr = -1
 	d.wg = &sync.WaitGroup{}
 	d.pb = pb.Full.Start(len(d.entries))

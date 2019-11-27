@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/kaz/sql-replay/benchmark/hq"
 	"github.com/kaz/sql-replay/benchmark/worker"
@@ -14,6 +16,12 @@ import (
 var (
 	Version = "dev"
 )
+
+func init() {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	go func() { os.Exit(128 + int((<-ch).(syscall.Signal))) }()
+}
 
 func main() {
 	app := &cli.App{

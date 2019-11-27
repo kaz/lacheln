@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"os/signal"
 
 	"github.com/kaz/sql-replay/benchmark/msg"
 	"github.com/urfave/cli/v2"
@@ -36,13 +34,6 @@ func Action(context *cli.Context) error {
 }
 
 func (w *worker) Start() error {
-	go func() {
-		ch := make(chan os.Signal)
-		signal.Notify(ch, os.Interrupt)
-		<-ch
-		os.Exit(0)
-	}()
-
 	for {
 		conn, err := w.listener.Accept()
 		if err != nil {
