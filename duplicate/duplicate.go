@@ -38,9 +38,6 @@ func Action(context *cli.Context) error {
 		return fmt.Errorf("yaml.Decoder.Decode failed: %w", err)
 	}
 
-	queries := duplicate(entries)
-	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
-
 	var out io.Writer = os.Stdout
 
 	outFilePath := context.String("output")
@@ -54,9 +51,29 @@ func Action(context *cli.Context) error {
 		out = outFile
 	}
 
+	if context.Bool("dry-run") {
+		return dryrun(out, entries)
+	}
+	return execute(out, entries)
+}
+
+func dryrun(out io.Writer, entries []*Entry) error {
+	for _, ent := range entries {
+		ent.Count = 1
+		ent.Ratio = 1.0
+	}
+
+	for _, que := range duplicate(entries) {
+		fmt.Fprintf(out, "%s;\n", que.SQL)
+	}
+	return nil
+}
+func execute(out io.Writer, entries []*Entry) error {
+	queries := duplicate(entries)
+	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
+
 	if err := msg.Send(out, &msg.PutQueryMessage{Query: queries}); err != nil {
 		return fmt.Errorf("msg.Send failed: %w", err)
 	}
-
 	return nil
 }

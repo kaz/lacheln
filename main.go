@@ -60,6 +60,9 @@ func main() {
 					&cli.StringFlag{
 						Name: "output",
 					},
+					&cli.BoolFlag{
+						Name: "dry-run",
+					},
 				},
 			},
 			{
