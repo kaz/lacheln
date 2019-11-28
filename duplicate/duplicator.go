@@ -3,6 +3,7 @@ package duplicate
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 
@@ -27,20 +28,22 @@ type (
 )
 
 func duplicate(entries []*Entry) []*msg.Query {
-	flat := []*Entry{}
-	for _, ent := range entries {
-		count := int(float32(ent.Count) * ent.Ratio)
+	for _, ent := range entries[:] {
+		count := int(float32(ent.Count-1) * ent.Ratio)
 		for i := 0; i < count; i++ {
-			flat = append(flat, ent)
+			entries = append(entries, ent)
 		}
 	}
 
+	total := len(entries)
+	rand.Shuffle(total, func(i, j int) { entries[i], entries[j] = entries[j], entries[i] })
+
 	d := &duplicator{
-		entries: flat,
-		queries: make([]*msg.Query, len(flat)),
+		entries: entries,
+		queries: make([]*msg.Query, total),
 		ptr:     -1,
 		wg:      &sync.WaitGroup{},
-		pb:      pb.Full.Start(len(flat)),
+		pb:      pb.Full.Start(total),
 	}
 
 	d.wg.Add(PROCESSOR_NUM)

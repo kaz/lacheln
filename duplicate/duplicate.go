@@ -3,7 +3,6 @@ package duplicate
 import (
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 
 	"github.com/kaz/lacheln/benchmark/msg"
@@ -69,10 +68,7 @@ func dryrun(out io.Writer, entries []*Entry) error {
 	return nil
 }
 func execute(out io.Writer, entries []*Entry) error {
-	queries := duplicate(entries)
-	rand.Shuffle(len(queries), func(i, j int) { queries[i], queries[j] = queries[j], queries[i] })
-
-	if err := msg.Send(out, &msg.PutQueryMessage{Query: queries}); err != nil {
+	if err := msg.Send(out, &msg.PutQueryMessage{Query: duplicate(entries)}); err != nil {
 		return fmt.Errorf("msg.Send failed: %w", err)
 	}
 	return nil
