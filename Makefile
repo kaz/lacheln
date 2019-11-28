@@ -1,11 +1,6 @@
 .PHONY: default
 default: docker-build
 
-ifeq ($(shell uname),Linux)
-LDFLAGS="-w -s -extldflags=-static"
-else
-LDFLAGS="-w -s"
-endif
 
 ###############
 # local build #
@@ -16,11 +11,11 @@ build: lacheln sample.so
 
 .PHONY: lacheln # always rebuild
 lacheln:
-	go build -o $@ -ldflags=$(LDFLAGS)
+	go build -o $@ -ldflags="-s -w"
 
 .PHONY: sample.so # always rebuild
 sample.so:
-	go build -o $@ -ldflags=$(LDFLAGS) -buildmode plugin ./plugins/sample
+	go build -o $@ -ldflags="-s -w" -buildmode plugin ./plugins/sample
 
 ###################
 # build in docker #
@@ -34,4 +29,4 @@ docker-build:
 
 .PHONY: docker-image
 docker-image:
-	docker build -t $(IMAGE_NAME) scripts
+	docker build -t $(IMAGE_NAME) .
