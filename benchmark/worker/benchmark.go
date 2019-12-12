@@ -60,7 +60,7 @@ func (b *benchmarker) startBenchmark() error {
 
 	b.metrics = []*msg.Metric{}
 	for i := 0; i < b.config.Threads; i++ {
-		metric := &msg.Metric{}
+		metric := &msg.Metric{Processed: make(map[int64]int64)}
 		b.metrics = append(b.metrics, metric)
 
 		b.wg.Add(1)
@@ -91,7 +91,6 @@ func (b *benchmarker) cancelBenchmark() error {
 }
 
 func (b *benchmarker) benchmark(metric *msg.Metric) {
-	metric.Start = time.Now()
 	log.Println("benchmark thread was spawned")
 
 	for {
@@ -109,14 +108,17 @@ func (b *benchmarker) benchmark(metric *msg.Metric) {
 		rows, err := db.Query(query.SQL)
 		if err != nil {
 			log.Printf("db.Query failed: %v\n", err)
-			metric.Fail += 1
-		} else {
-			metric.Success += 1
-			rows.Close()
+			continue
 		}
+		rows.Close()
+
+		now := time.Now().Unix()
+		if _, ok := metric.Processed[now]; !ok {
+			metric.Processed[now] = 0
+		}
+		metric.Processed[now] += 1
 	}
 
-	metric.Finish = time.Now()
 	log.Println("benchmark thread was terminated")
 	b.wg.Done()
 }

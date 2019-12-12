@@ -1,9 +1,5 @@
 package msg
 
-import (
-	"time"
-)
-
 type (
 	BenchmarkConfig struct {
 		Threads   int
@@ -26,10 +22,6 @@ type (
 		Current int
 	}
 	Metric struct {
-		Start  time.Time
-		Finish time.Time
-
-		Fail    int
-		Success int
+		Processed map[int64]int64
 	}
 )

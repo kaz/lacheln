@@ -2,6 +2,7 @@ package hq
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -60,20 +61,25 @@ func (c *collector) Progress() {
 func (c *collector) Oneshot() {
 	c.fetch()
 
-	fmt.Printf("Progress  : %7.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
-	fmt.Printf("Failed    : %9d\n", c.metric.Fail)
-	fmt.Printf("Succeeded : %9d\n", c.metric.Success)
+	var min int64 = math.MaxInt64
+	var max int64 = math.MinInt64
 
-	finish := c.metric.Finish
-	if finish.IsZero() {
-		finish = time.Now()
+	for key, _ := range c.metric.Processed {
+		if key < min {
+			min = key
+		}
+		if key > max {
+			max = key
+		}
 	}
-	fmt.Printf("QPS       : %9.0f\n", float64(c.metric.Success)/finish.Sub(c.metric.Start).Seconds())
+
+	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
+	fmt.Printf("%9.0f q/s\n", float64(c.spec.Current)/float64(max-min))
 }
 
 func (c *collector) fetch() {
 	c.spec = &msg.Spec{}
-	c.metric = &msg.Metric{}
+	c.metric = &msg.Metric{Processed: make(map[int64]int64)}
 	broadcast(c.workers, c.collect)
 }
 
@@ -110,14 +116,11 @@ func (c *collector) merge(spec *msg.Spec, metrics []*msg.Metric) {
 	c.spec.Current += spec.Current
 
 	for _, metric := range metrics {
-		c.metric.Fail += metric.Fail
-		c.metric.Success += metric.Success
-
-		if c.metric.Start.IsZero() || metric.Start.Before(c.metric.Start) {
-			c.metric.Start = metric.Start
-		}
-		if c.metric.Finish.IsZero() || metric.Finish.After(c.metric.Finish) {
-			c.metric.Finish = metric.Finish
+		for key, value := range metric.Processed {
+			if _, ok := c.metric.Processed[key]; !ok {
+				c.metric.Processed[key] = 0
+			}
+			c.metric.Processed[key] += value
 		}
 	}
 }
