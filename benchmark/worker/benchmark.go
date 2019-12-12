@@ -60,7 +60,7 @@ func (b *benchmarker) startBenchmark() error {
 
 	b.metrics = []*msg.Metric{}
 	for i := 0; i < b.config.Threads; i++ {
-		metric := &msg.Metric{Processed: make(map[int64]int64)}
+		metric := &msg.Metric{QPS: make(map[int64]int64)}
 		b.metrics = append(b.metrics, metric)
 
 		b.wg.Add(1)
@@ -112,11 +112,11 @@ func (b *benchmarker) benchmark(metric *msg.Metric) {
 		}
 		rows.Close()
 
-		now := time.Now().Unix()
-		if _, ok := metric.Processed[now]; !ok {
-			metric.Processed[now] = 0
+		ts := time.Now().Unix()
+		if _, ok := metric.QPS[ts]; !ok {
+			metric.QPS[ts] = 0
 		}
-		metric.Processed[now] += 1
+		metric.QPS[ts] += 1
 	}
 
 	log.Println("benchmark thread was terminated")

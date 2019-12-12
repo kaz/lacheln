@@ -22,6 +22,6 @@ type (
 		Current int
 	}
 	Metric struct {
-		Processed map[int64]int64
+		QPS map[int64]int64
 	}
 )

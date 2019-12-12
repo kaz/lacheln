@@ -67,18 +67,18 @@ func (c *collector) Result() {
 	c.fetch()
 
 	var qpsSum int64
-	for _, value := range c.metric.Processed {
+	for _, value := range c.metric.QPS {
 		qpsSum += value
 	}
 
 	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
-	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.metric.Processed)))
+	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.metric.QPS)))
 }
 func (c *collector) Graph() {
 	c.fetch()
 
-	data := make([][2]int64, 0, len(c.metric.Processed))
-	for key, value := range c.metric.Processed {
+	data := make([][2]int64, 0, len(c.metric.QPS))
+	for key, value := range c.metric.QPS {
 		data = append(data, [2]int64{key, value})
 	}
 
@@ -91,7 +91,7 @@ func (c *collector) Graph() {
 
 func (c *collector) fetch() {
 	c.spec = &msg.Spec{}
-	c.metric = &msg.Metric{Processed: make(map[int64]int64)}
+	c.metric = &msg.Metric{QPS: make(map[int64]int64)}
 	broadcast(c.workers, c.collect)
 }
 
@@ -128,11 +128,11 @@ func (c *collector) merge(spec *msg.Spec, metrics []*msg.Metric) {
 	c.spec.Current += spec.Current
 
 	for _, metric := range metrics {
-		for key, value := range metric.Processed {
-			if _, ok := c.metric.Processed[key]; !ok {
-				c.metric.Processed[key] = 0
+		for key, value := range metric.QPS {
+			if _, ok := c.metric.QPS[key]; !ok {
+				c.metric.QPS[key] = 0
 			}
-			c.metric.Processed[key] += value
+			c.metric.QPS[key] += value
 		}
 	}
 }
