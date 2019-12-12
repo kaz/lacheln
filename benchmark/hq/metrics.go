@@ -16,9 +16,7 @@ type (
 	collector struct {
 		workers []string
 
-		mu *sync.Mutex
-
-		spec   *msg.Spec
+		mu     *sync.Mutex
 		metric *msg.Metric
 	}
 )
@@ -54,8 +52,8 @@ func (c *collector) Progress() {
 	for {
 		c.fetch()
 
-		progress.SetTotal(int64(c.spec.Total)).SetCurrent(int64(c.spec.Current))
-		if c.spec.Current >= c.spec.Total {
+		progress.SetTotal(int64(c.metric.Total)).SetCurrent(int64(c.metric.Current))
+		if c.metric.Current >= c.metric.Total {
 			progress.Write()
 			break
 		}
@@ -66,12 +64,12 @@ func (c *collector) Progress() {
 func (c *collector) Result() {
 	c.fetch()
 
-	var qpsSum int64
+	var qpsSum int32
 	for _, value := range c.metric.QPS {
 		qpsSum += value
 	}
 
-	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
+	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.metric.Current)/float64(c.metric.Total), c.metric.Current, c.metric.Total)
 	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.metric.QPS)))
 }
 func (c *collector) Graph() {
@@ -79,7 +77,7 @@ func (c *collector) Graph() {
 
 	data := make([][2]int64, 0, len(c.metric.QPS))
 	for key, value := range c.metric.QPS {
-		data = append(data, [2]int64{key, value})
+		data = append(data, [2]int64{key, int64(value)})
 	}
 
 	sort.Slice(data, func(i, j int) bool { return data[i][0] < data[j][0] })
@@ -90,8 +88,7 @@ func (c *collector) Graph() {
 }
 
 func (c *collector) fetch() {
-	c.spec = &msg.Spec{}
-	c.metric = &msg.Metric{QPS: make(map[int64]int64)}
+	c.metric = &msg.Metric{QPS: make(map[int64]int32)}
 	broadcast(c.workers, c.collect)
 }
 
@@ -116,23 +113,21 @@ func (c *collector) collect(i int, worker string) error {
 		return fmt.Errorf("unexpected message: %v", raw)
 	}
 
-	c.merge(resp.Spec, resp.Metrics)
+	c.merge(resp.Metric)
 	return nil
 }
 
-func (c *collector) merge(spec *msg.Spec, metrics []*msg.Metric) {
+func (c *collector) merge(metric *msg.Metric) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.spec.Total += spec.Total
-	c.spec.Current += spec.Current
+	c.metric.Total += metric.Total
+	c.metric.Current += metric.Current
 
-	for _, metric := range metrics {
-		for key, value := range metric.QPS {
-			if _, ok := c.metric.QPS[key]; !ok {
-				c.metric.QPS[key] = 0
-			}
-			c.metric.QPS[key] += value
+	for key, value := range metric.QPS {
+		if _, ok := c.metric.QPS[key]; !ok {
+			c.metric.QPS[key] = 0
 		}
+		c.metric.QPS[key] += value
 	}
 }

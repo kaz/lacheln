@@ -24,8 +24,7 @@ type (
 	MetricsRequestMessage struct {
 	}
 	MetricsResponseMessage struct {
-		Spec    *Spec
-		Metrics []*Metric
+		Metric *Metric
 	}
 )
 

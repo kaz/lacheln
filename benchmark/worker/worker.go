@@ -84,11 +84,11 @@ func (w *worker) handle(c net.Conn) {
 		}
 	} else if _, ok := rawBody.(*msg.MetricsRequestMessage); ok {
 		resp = &msg.MetricsResponseMessage{
-			Spec: &msg.Spec{
+			Metric: &msg.Metric{
 				Total:   len(w.queries),
 				Current: int(w.now),
+				QPS:     w.getQPS(),
 			},
-			Metrics: w.metrics,
 		}
 	} else {
 		panic(fmt.Errorf("unexpected message type: %v", rawBody))

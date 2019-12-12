@@ -17,11 +17,9 @@ type (
 		SQL string
 	}
 
-	Spec struct {
+	Metric struct {
 		Total   int
 		Current int
-	}
-	Metric struct {
-		QPS map[int64]int64
+		QPS     map[int64]int32
 	}
 )

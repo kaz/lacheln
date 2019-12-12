@@ -17,13 +17,13 @@ type (
 		config  *msg.BenchmarkConfig
 		queries []*msg.Query
 
-		wg  *sync.WaitGroup
-		now int32
-
 		rwConn []*sql.DB
 		roConn []*sql.DB
 
-		metrics []*msg.Metric
+		wg  *sync.WaitGroup
+		now int32
+
+		qps *sync.Map
 	}
 )
 
@@ -55,16 +55,14 @@ func (b *benchmarker) startBenchmark() error {
 		b.roConn = append(b.roConn, conn)
 	}
 
-	b.now = -1
 	b.wg = &sync.WaitGroup{}
+	b.now = -1
 
-	b.metrics = []*msg.Metric{}
+	b.qps = &sync.Map{}
+
 	for i := 0; i < b.config.Threads; i++ {
-		metric := &msg.Metric{QPS: make(map[int64]int64)}
-		b.metrics = append(b.metrics, metric)
-
 		b.wg.Add(1)
-		go b.benchmark(metric)
+		go b.benchmark()
 	}
 
 	go func() {
@@ -90,7 +88,7 @@ func (b *benchmarker) cancelBenchmark() error {
 	return nil
 }
 
-func (b *benchmarker) benchmark(metric *msg.Metric) {
+func (b *benchmarker) benchmark() {
 	log.Println("benchmark thread was spawned")
 
 	for {
@@ -112,13 +110,19 @@ func (b *benchmarker) benchmark(metric *msg.Metric) {
 		}
 		rows.Close()
 
-		ts := time.Now().Unix()
-		if _, ok := metric.QPS[ts]; !ok {
-			metric.QPS[ts] = 0
-		}
-		metric.QPS[ts] += 1
+		addr, _ := b.qps.LoadOrStore(time.Now().Unix(), new(int32))
+		atomic.AddInt32(addr.(*int32), 1)
 	}
 
 	log.Println("benchmark thread was terminated")
 	b.wg.Done()
+}
+
+func (b *benchmarker) getQPS() map[int64]int32 {
+	qps := map[int64]int32{}
+	b.qps.Range(func(key, value interface{}) bool {
+		qps[key.(int64)] = *value.(*int32)
+		return true
+	})
+	return qps
 }
