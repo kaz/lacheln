@@ -2,7 +2,6 @@ package hq
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"sort"
 	"sync"
@@ -67,20 +66,13 @@ func (c *collector) Progress() {
 func (c *collector) Result() {
 	c.fetch()
 
-	var min int64 = math.MaxInt64
-	var max int64 = math.MinInt64
-
-	for key, _ := range c.metric.Processed {
-		if key < min {
-			min = key
-		}
-		if key > max {
-			max = key
-		}
+	var qpsSum int64
+	for _, value := range c.metric.Processed {
+		qpsSum += value
 	}
 
 	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
-	fmt.Printf("%9.0f q/s\n", float64(c.spec.Current)/float64(max-min))
+	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.metric.Processed)))
 }
 func (c *collector) Graph() {
 	c.fetch()
