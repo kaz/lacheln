@@ -3,8 +3,6 @@ package hq
 import (
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
 	"sync"
 	"time"
 
@@ -45,13 +43,6 @@ func ActionMetrics(context *cli.Context) error {
 }
 
 func (c *collector) Progress() {
-	go func() {
-		ch := make(chan os.Signal)
-		signal.Notify(ch, os.Interrupt)
-		<-ch
-		os.Exit(0)
-	}()
-
 	progress := pb.Full.New(0).Start()
 
 	for {
