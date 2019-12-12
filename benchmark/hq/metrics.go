@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,10 +35,15 @@ func ActionMetrics(context *cli.Context) error {
 		mu:      &sync.Mutex{},
 	}
 
-	if context.Bool("progress") {
+	switch context.String("type") {
+	case "progress":
 		c.Progress()
-	} else {
-		c.Oneshot()
+	case "result":
+		c.Result()
+	case "graph":
+		c.Graph()
+	default:
+		return fmt.Errorf("no such type: %v", context.String("type"))
 	}
 
 	return nil
@@ -58,7 +64,7 @@ func (c *collector) Progress() {
 		time.Sleep(1 * time.Second)
 	}
 }
-func (c *collector) Oneshot() {
+func (c *collector) Result() {
 	c.fetch()
 
 	var min int64 = math.MaxInt64
@@ -75,6 +81,20 @@ func (c *collector) Oneshot() {
 
 	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.spec.Current)/float64(c.spec.Total), c.spec.Current, c.spec.Total)
 	fmt.Printf("%9.0f q/s\n", float64(c.spec.Current)/float64(max-min))
+}
+func (c *collector) Graph() {
+	c.fetch()
+
+	data := make([][2]int64, 0, len(c.metric.Processed))
+	for key, value := range c.metric.Processed {
+		data = append(data, [2]int64{key, value})
+	}
+
+	sort.Slice(data, func(i, j int) bool { return data[i][0] < data[j][0] })
+
+	for _, kv := range data {
+		fmt.Println(kv[0], kv[1])
+	}
 }
 
 func (c *collector) fetch() {

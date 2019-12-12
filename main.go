@@ -116,8 +116,9 @@ func main() {
 								Name:     "config",
 								Required: true,
 							},
-							&cli.BoolFlag{
-								Name: "progress",
+							&cli.StringFlag{
+								Name:     "type",
+								Required: true,
 							},
 						},
 					},
