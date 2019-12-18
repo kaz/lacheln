@@ -16,8 +16,11 @@ type (
 	collector struct {
 		workers []string
 
-		mu     *sync.Mutex
-		metric *msg.Metric
+		mu *sync.Mutex
+
+		total   int64
+		current int64
+		qps     map[int64]int64
 	}
 )
 
@@ -52,8 +55,8 @@ func (c *collector) Progress() {
 	for {
 		c.fetch()
 
-		progress.SetTotal(int64(c.metric.Total)).SetCurrent(int64(c.metric.Current))
-		if c.metric.Current >= c.metric.Total {
+		progress.SetTotal(c.total).SetCurrent(c.current)
+		if c.current >= c.total {
 			progress.Write()
 			break
 		}
@@ -64,31 +67,35 @@ func (c *collector) Progress() {
 func (c *collector) Result() {
 	c.fetch()
 
-	var qpsSum int32
-	for _, value := range c.metric.QPS {
+	var qpsSum int64
+	for _, value := range c.qps {
 		qpsSum += value
 	}
 
-	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.metric.Current)/float64(c.metric.Total), c.metric.Current, c.metric.Total)
-	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.metric.QPS)))
+	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.current)/float64(c.total), c.current, c.total)
+	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.qps)))
 }
 func (c *collector) Graph() {
 	c.fetch()
 
-	data := make([][2]int64, 0, len(c.metric.QPS))
-	for key, value := range c.metric.QPS {
-		data = append(data, [2]int64{key, int64(value)})
+	data := make([][2]int64, 0, len(c.qps))
+	for key, value := range c.qps {
+		data = append(data, [2]int64{key, value})
 	}
 
 	sort.Slice(data, func(i, j int) bool { return data[i][0] < data[j][0] })
 
 	for _, kv := range data {
-		fmt.Println(kv[0], kv[1])
+		fmt.Printf("%d\t%d\n", kv[0], kv[1])
 	}
 }
 
 func (c *collector) fetch() {
-	c.metric = &msg.Metric{QPS: make(map[int64]int32)}
+	c.mu = &sync.Mutex{}
+	c.total = 0
+	c.current = 0
+	c.qps = make(map[int64]int64)
+
 	broadcast(c.workers, c.collect)
 }
 
@@ -121,13 +128,14 @@ func (c *collector) merge(metric *msg.Metric) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.metric.Total += metric.Total
-	c.metric.Current += metric.Current
+	c.total += metric.Total
 
-	for key, value := range metric.QPS {
-		if _, ok := c.metric.QPS[key]; !ok {
-			c.metric.QPS[key] = 0
+	for _, tss := range metric.TS {
+		for _, ts := range tss {
+			if ts != 0 {
+				c.current += 1
+				c.qps[ts] += 1
+			}
 		}
-		c.metric.QPS[key] += value
 	}
 }

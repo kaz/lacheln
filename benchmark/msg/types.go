@@ -18,8 +18,7 @@ type (
 	}
 
 	Metric struct {
-		Total   int
-		Current int
-		QPS     map[int64]int32
+		Total int64
+		TS    [][]int64
 	}
 )

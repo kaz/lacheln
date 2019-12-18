@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/kaz/lacheln/benchmark/msg"
@@ -12,8 +13,10 @@ import (
 
 type (
 	benchmarker struct {
-		wg        *sync.WaitGroup
 		cancelled bool
+		wg        *sync.WaitGroup
+
+		Metric *msg.Metric
 	}
 )
 
@@ -27,6 +30,11 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) e
 
 	b.cancelled = false
 	b.wg = &sync.WaitGroup{}
+
+	b.Metric = &msg.Metric{
+		Total: int64(len(queries)),
+		TS:    [][]int64{},
+	}
 
 	size := len(queries) / config.Threads
 
@@ -53,9 +61,13 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) e
 		if i+1 == config.Threads {
 			last = len(queries)
 		}
+		chunk := queries[i*size : last]
+
+		ts := make([]int64, len(chunk))
+		b.Metric.TS = append(b.Metric.TS, ts)
 
 		b.wg.Add(1)
-		go b.run(rwConn, roConn, queries[i*size:last])
+		go b.run(rwConn, roConn, chunk, ts)
 	}
 
 	go func() {
@@ -76,7 +88,7 @@ func (b *benchmarker) Cancel() error {
 	return nil
 }
 
-func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query) {
+func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query, ts []int64) {
 	log.Println("benchmark thread was spawned")
 
 	for i, query := range queries {
@@ -91,6 +103,8 @@ func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query) {
 			continue
 		}
 		rows.Close()
+
+		ts[i] = time.Now().Unix()
 
 		if b.cancelled {
 			break
