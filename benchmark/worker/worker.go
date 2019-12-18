@@ -12,7 +12,9 @@ import (
 type (
 	worker struct {
 		listener net.Listener
-		benchmarker
+
+		queries     []*msg.Query
+		benchmarker benchmarker
 	}
 )
 
@@ -69,13 +71,12 @@ func (w *worker) handle(c net.Conn) {
 	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {
 		switch body.Mode {
 		case "start":
-			w.config = body.Config
-			if err := w.startBenchmark(); err != nil {
+			if err := w.benchmarker.Start(body.Config, w.queries); err != nil {
 				panic(fmt.Errorf("starting benchmark failed: %w", err))
 			}
-			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", w.config)}
+			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", body.Config)}
 		case "cancel":
-			if err := w.cancelBenchmark(); err != nil {
+			if err := w.benchmarker.Cancel(); err != nil {
 				panic(fmt.Errorf("canceling benchmark failed: %w", err))
 			}
 			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: "benchmark was cancelled"}
@@ -85,9 +86,7 @@ func (w *worker) handle(c net.Conn) {
 	} else if _, ok := rawBody.(*msg.MetricsRequestMessage); ok {
 		resp = &msg.MetricsResponseMessage{
 			Metric: &msg.Metric{
-				Total:   len(w.queries),
-				Current: int(w.now),
-				QPS:     w.getQPS(),
+				// TODO
 			},
 		}
 	} else {

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/kaz/lacheln/benchmark/msg"
@@ -14,93 +12,77 @@ import (
 
 type (
 	benchmarker struct {
-		config  *msg.BenchmarkConfig
-		queries []*msg.Query
-
-		rwConn []*sql.DB
-		roConn []*sql.DB
-
-		wg  *sync.WaitGroup
-		now int32
-
-		qps *sync.Map
+		wg        *sync.WaitGroup
+		cancelled bool
 	}
 )
 
-func (b *benchmarker) startBenchmark() error {
-	if len(b.queries) < 1 {
+func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) error {
+	if len(queries) < 1 {
 		return fmt.Errorf("No query")
 	}
 	if b.wg != nil {
 		return fmt.Errorf("Job is already working")
 	}
 
-	b.rwConn = []*sql.DB{}
-	for _, h := range b.config.RWServers {
-		conn, err := sql.Open("mysql", h.DSN)
-		if err != nil {
-			return fmt.Errorf("sql.Open failed: %w", err)
-		}
-		conn.SetMaxOpenConns(h.Connections)
-		b.rwConn = append(b.rwConn, conn)
-	}
-
-	b.roConn = []*sql.DB{}
-	for _, h := range b.config.ROServers {
-		conn, err := sql.Open("mysql", h.DSN)
-		if err != nil {
-			return fmt.Errorf("sql.Open failed: %w", err)
-		}
-		conn.SetMaxOpenConns(h.Connections)
-		b.roConn = append(b.roConn, conn)
-	}
-
+	b.cancelled = false
 	b.wg = &sync.WaitGroup{}
-	b.now = -1
 
-	b.qps = &sync.Map{}
+	size := len(queries) / config.Threads
 
-	for i := 0; i < b.config.Threads; i++ {
+	for i := 0; i < config.Threads; i++ {
+		rwConn := []*sql.DB{}
+		for _, h := range config.RWServers {
+			conn, err := sql.Open("mysql", h.DSN)
+			if err != nil {
+				return fmt.Errorf("sql.Open failed: %w", err)
+			}
+			rwConn = append(rwConn, conn)
+		}
+
+		roConn := []*sql.DB{}
+		for _, h := range config.ROServers {
+			conn, err := sql.Open("mysql", h.DSN)
+			if err != nil {
+				return fmt.Errorf("sql.Open failed: %w", err)
+			}
+			roConn = append(roConn, conn)
+		}
+
+		last := (i + 1) * size
+		if i+1 == config.Threads {
+			last = len(queries)
+		}
+
 		b.wg.Add(1)
-		go b.benchmark()
+		go b.run(rwConn, roConn, queries[i*size:last])
 	}
 
 	go func() {
 		b.wg.Wait()
-		for _, db := range append(b.rwConn, b.roConn...) {
-			db.Close()
-		}
-
-		b.now = int32(len(b.queries))
 		b.wg = nil
 	}()
 
 	return nil
 }
-func (b *benchmarker) cancelBenchmark() error {
+func (b *benchmarker) Cancel() error {
 	if b.wg == nil {
 		return fmt.Errorf("No job is working")
 	}
 
-	b.now = int32(len(b.queries))
+	b.cancelled = true
 	b.wg.Wait()
 
 	return nil
 }
 
-func (b *benchmarker) benchmark() {
+func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query) {
 	log.Println("benchmark thread was spawned")
 
-	for {
-		i := int(atomic.AddInt32(&b.now, 1))
-		if i >= len(b.queries) {
-			break
-		}
-
-		query := b.queries[i]
-		db := b.roConn[i%len(b.roConn)]
+	for i, query := range queries {
+		db := roConn[i%len(roConn)]
 		if !query.RO {
-			db = b.rwConn[i%len(b.rwConn)]
+			db = rwConn[i%len(rwConn)]
 		}
 
 		rows, err := db.Query(query.SQL)
@@ -110,19 +92,15 @@ func (b *benchmarker) benchmark() {
 		}
 		rows.Close()
 
-		addr, _ := b.qps.LoadOrStore(time.Now().Unix(), new(int32))
-		atomic.AddInt32(addr.(*int32), 1)
+		if b.cancelled {
+			break
+		}
+	}
+
+	for _, db := range append(rwConn, roConn...) {
+		db.Close()
 	}
 
 	log.Println("benchmark thread was terminated")
 	b.wg.Done()
-}
-
-func (b *benchmarker) getQPS() map[int64]int32 {
-	qps := map[int64]int32{}
-	b.qps.Range(func(key, value interface{}) bool {
-		qps[key.(int64)] = *value.(*int32)
-		return true
-	})
-	return qps
 }

@@ -33,9 +33,9 @@ func ActionPut(context *cli.Context) error {
 	size := len(query.Query) / len(conf.Workers)
 
 	broadcast(conf.Workers, func(i int, worker string) error {
-		last := len(query.Query)
-		if (i+1)*size < last {
-			last = (i + 1) * size
+		last := (i + 1) * size
+		if i+1 == len(conf.Workers) {
+			last = len(query.Query)
 		}
 		return communicate(worker, &msg.PutQueryMessage{Query: query.Query[i*size : last]})
 	})
