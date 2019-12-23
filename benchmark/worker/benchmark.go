@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -19,6 +20,20 @@ type (
 		Metric *msg.Metric
 	}
 )
+
+func getConnections(servers []string) ([]*sql.DB, error) {
+	connections := make([]*sql.DB, len(servers))
+	for i, dsn := range servers {
+		conn, err := sql.Open("mysql", dsn)
+		if err != nil {
+			return nil, fmt.Errorf("sql.Open failed: %w", err)
+		}
+		connections[i] = conn
+	}
+
+	rand.Shuffle(len(connections), func(i, j int) { connections[i], connections[j] = connections[j], connections[i] })
+	return connections, nil
+}
 
 func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) error {
 	if len(queries) < 1 {
@@ -39,22 +54,14 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) e
 	size := len(queries) / config.Threads
 
 	for i := 0; i < config.Threads; i++ {
-		rwConn := []*sql.DB{}
-		for _, h := range config.RWServers {
-			conn, err := sql.Open("mysql", h.DSN)
-			if err != nil {
-				return fmt.Errorf("sql.Open failed: %w", err)
-			}
-			rwConn = append(rwConn, conn)
+		roConn, err := getConnections(config.ROServers)
+		if err != nil {
+			return fmt.Errorf("getConnections failed: %w", err)
 		}
 
-		roConn := []*sql.DB{}
-		for _, h := range config.ROServers {
-			conn, err := sql.Open("mysql", h.DSN)
-			if err != nil {
-				return fmt.Errorf("sql.Open failed: %w", err)
-			}
-			roConn = append(roConn, conn)
+		rwConn, err := getConnections(config.RWServers)
+		if err != nil {
+			return fmt.Errorf("getConnections failed: %w", err)
 		}
 
 		last := (i + 1) * size
