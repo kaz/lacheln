@@ -2,9 +2,10 @@ package msg
 
 import (
 	"compress/flate"
-	"encoding/gob"
 	"fmt"
 	"io"
+
+	"github.com/vmihailenco/msgpack"
 )
 
 type (
@@ -111,8 +112,8 @@ func sendBody(w io.Writer, data interface{}) error {
 		return fmt.Errorf("flate.NewWriter failed: %w", err)
 	}
 
-	if err := gob.NewEncoder(inflator).Encode(data); err != nil {
-		return fmt.Errorf("gob.NewEncoder.Encode failed: %w", err)
+	if err := msgpack.NewEncoder(inflator).Encode(data); err != nil {
+		return fmt.Errorf("msgpack.NewEncoder.Encode failed: %w", err)
 	}
 
 	if err := inflator.Flush(); err != nil {
@@ -122,8 +123,8 @@ func sendBody(w io.Writer, data interface{}) error {
 	return nil
 }
 func receiveBody(r io.Reader, data interface{}) error {
-	if err := gob.NewDecoder(flate.NewReader(r)).Decode(data); err != nil {
-		return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
+	if err := msgpack.NewDecoder(flate.NewReader(r)).Decode(data); err != nil {
+		return fmt.Errorf("msgpack.NewDecoder.Decode failed: %w", err)
 	}
 
 	return nil
