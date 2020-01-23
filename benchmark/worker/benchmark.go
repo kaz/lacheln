@@ -17,7 +17,8 @@ type (
 		cancelled bool
 		wg        *sync.WaitGroup
 
-		Metric *msg.Metric
+		Strategy *msg.Strategy
+		Metric   *msg.Metric
 	}
 )
 
@@ -35,8 +36,8 @@ func getConnections(servers []string) ([]*sql.DB, error) {
 	return connections, nil
 }
 
-func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig, queries []*msg.Query) error {
-	if len(queries) < 1 {
+func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig) error {
+	if len(b.Strategy.Fragments) < 1 {
 		return fmt.Errorf("No query")
 	}
 	if b.wg != nil {
@@ -47,11 +48,11 @@ func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig, queries [
 	b.wg = &sync.WaitGroup{}
 
 	b.Metric = &msg.Metric{
-		Total:     int64(len(queries)),
+		Total:     int64(len(b.Strategy.Fragments)),
 		Timestamp: [][][2]uint16{},
 	}
 
-	size := len(queries) / config.Threads
+	size := len(b.Strategy.Fragments) / config.Threads
 
 	for i := 0; i < config.Threads; i++ {
 		roConn, err := getConnections(config.ROServers)
@@ -66,9 +67,9 @@ func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig, queries [
 
 		last := (i + 1) * size
 		if i+1 == config.Threads {
-			last = len(queries)
+			last = len(b.Strategy.Fragments)
 		}
-		chunk := queries[i*size : last]
+		chunk := b.Strategy.Fragments[i*size : last]
 
 		stamps := make([][2]uint16, len(chunk))
 		b.Metric.Timestamp = append(b.Metric.Timestamp, stamps)
@@ -95,18 +96,21 @@ func (b *benchmarker) Cancel() error {
 	return nil
 }
 
-func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query, base time.Time, stamps [][2]uint16) {
+func (b *benchmarker) run(rwConn, roConn []*sql.DB, fragments []*msg.Fragment, base time.Time, stamps [][2]uint16) {
 	log.Println("benchmark thread was spawned")
 
-	for i, query := range queries {
-		start := time.Now()
+	for i, frag := range fragments {
+		template := b.Strategy.Templates[frag.Reference]
+		query := fmt.Sprintf(template.SQL, frag.Arguments...)
 
 		db := roConn[i%len(roConn)]
-		if !query.RO {
+		if !template.RO {
 			db = rwConn[i%len(rwConn)]
 		}
 
-		rows, err := db.Query(query.SQL)
+		start := time.Now()
+
+		rows, err := db.Query(query)
 		if err != nil {
 			log.Printf("db.Query failed: %v\n", err)
 			continue

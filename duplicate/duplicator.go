@@ -1,7 +1,6 @@
 package duplicate
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -18,32 +17,37 @@ const (
 
 type (
 	duplicator struct {
-		entries []*Entry
-		queries []*msg.Query
-
-		ptr int32
+		ptr int64
 		wg  *sync.WaitGroup
 		pb  *pb.ProgressBar
+
+		ent []*Entry
+		st  *msg.Strategy
 	}
 )
 
-func duplicate(entries []*Entry) []*msg.Query {
-	for _, ent := range entries[:] {
-		count := int(float32(ent.Count-1) * ent.Ratio)
+func duplicate(entries []*Entry) *msg.Strategy {
+	templates := make([]*msg.Template, len(entries))
+	fragments := []*msg.Fragment{}
+
+	for ref, ent := range entries {
+		templates[ref] = &msg.Template{RO: ent.ReadOnly, SQL: ent.Query}
+
+		count := int(float32(ent.Count) * ent.Ratio)
 		for i := 0; i < count; i++ {
-			entries = append(entries, ent)
+			fragments = append(fragments, &msg.Fragment{Reference: ref})
 		}
 	}
 
-	total := len(entries)
-	rand.Shuffle(total, func(i, j int) { entries[i], entries[j] = entries[j], entries[i] })
+	total := len(fragments)
+	rand.Shuffle(total, func(i, j int) { fragments[i], fragments[j] = fragments[j], fragments[i] })
 
 	d := &duplicator{
-		entries: entries,
-		queries: make([]*msg.Query, total),
-		ptr:     -1,
-		wg:      &sync.WaitGroup{},
-		pb:      pb.Full.Start(total),
+		ptr: -1,
+		wg:  &sync.WaitGroup{},
+		pb:  pb.Full.Start(total),
+		ent: entries,
+		st:  &msg.Strategy{Templates: templates, Fragments: fragments},
 	}
 
 	d.wg.Add(PROCESSOR_NUM)
@@ -54,37 +58,34 @@ func duplicate(entries []*Entry) []*msg.Query {
 	d.wg.Wait()
 	d.pb.Write().Finish()
 
-	return d.queries
+	return d.st
 }
 
 func (d *duplicator) process() {
 	for {
-		i := atomic.AddInt32(&d.ptr, 1)
-		if int(i) >= len(d.entries) {
+		i := atomic.AddInt64(&d.ptr, 1)
+		if int(i) >= len(d.st.Fragments) {
 			break
 		}
 
-		ent := d.entries[i]
+		frag := d.st.Fragments[i]
+		ent := d.ent[frag.Reference]
 
-		vals := []interface{}{}
-		if ent.Replace != nil {
-			for _, rep := range ent.Replace {
-				args := []string{}
-				if rep.Args != nil {
-					args = rep.Args
-				}
+		frag.Arguments = make([]interface{}, len(ent.Replace))
+		for ia, rep := range ent.Replace {
+			args := []string{}
+			if rep.Args != nil {
+				args = rep.Args
+			}
 
-				val, err := dummy.Get(rep.Key, args...)
-				if err != nil {
-					log.Printf("getDummy failed: %v\n", err)
-					continue
-				}
-
-				vals = append(vals, val)
+			var err error
+			frag.Arguments[ia], err = dummy.Get(rep.Key, args...)
+			if err != nil {
+				log.Printf("getDummy failed: %v\n", err)
+				continue
 			}
 		}
 
-		d.queries[i] = &msg.Query{RO: ent.ReadOnly, SQL: fmt.Sprintf(ent.Query, vals...)}
 		d.pb.Increment()
 	}
 	d.wg.Done()

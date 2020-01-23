@@ -51,25 +51,20 @@ func Action(context *cli.Context) error {
 	}
 
 	if context.Bool("dry-run") {
-		return dryrun(out, entries)
-	}
-	return execute(out, entries)
-}
+		for _, ent := range entries {
+			ent.Count = 1
+			ent.Ratio = 1.0
+		}
 
-func dryrun(out io.Writer, entries []*Entry) error {
-	for _, ent := range entries {
-		ent.Count = 1
-		ent.Ratio = 1.0
-	}
-
-	for _, que := range duplicate(entries) {
-		fmt.Fprintf(out, "%s;\n", que.SQL)
-	}
-	return nil
-}
-func execute(out io.Writer, entries []*Entry) error {
-	if err := msg.Send(out, &msg.PutQueryMessage{Query: duplicate(entries)}); err != nil {
-		return fmt.Errorf("msg.Send failed: %w", err)
+		strategy := duplicate(entries)
+		for _, frag := range strategy.Fragments {
+			tmp := strategy.Templates[frag.Reference]
+			fmt.Fprintf(out, tmp.SQL+";\n", frag.Arguments...)
+		}
+	} else {
+		if err := msg.Send(out, &msg.PutStrategyMessage{Strategy: duplicate(entries)}); err != nil {
+			return fmt.Errorf("msg.Send failed: %w", err)
+		}
 	}
 	return nil
 }

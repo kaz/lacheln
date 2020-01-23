@@ -16,8 +16,8 @@ type (
 		Status string
 		Detail string
 	}
-	PutQueryMessage struct {
-		Query []*Query
+	PutStrategyMessage struct {
+		Strategy *Strategy
 	}
 	BenchmarkJobMessage struct {
 		Mode   string
@@ -34,7 +34,7 @@ type (
 const (
 	typeUnknown MessageType = iota
 	typeAcknowledged
-	typePutQuery
+	typePutStrategy
 	typeBenchmarkJob
 	typeMetricsRequest
 	typeMetricsResponse
@@ -46,8 +46,8 @@ func Send(w io.Writer, body interface{}) error {
 	switch body.(type) {
 	case *AcknowledgedMessage:
 		typ = typeAcknowledged
-	case *PutQueryMessage:
-		typ = typePutQuery
+	case *PutStrategyMessage:
+		typ = typePutStrategy
 	case *BenchmarkJobMessage:
 		typ = typeBenchmarkJob
 	case *MetricsRequestMessage:
@@ -76,8 +76,8 @@ func Receive(r io.Reader) (interface{}, error) {
 	switch typ {
 	case typeAcknowledged:
 		body = &AcknowledgedMessage{}
-	case typePutQuery:
-		body = &PutQueryMessage{}
+	case typePutStrategy:
+		body = &PutStrategyMessage{}
 	case typeBenchmarkJob:
 		body = &BenchmarkJobMessage{}
 	case typeMetricsRequest:

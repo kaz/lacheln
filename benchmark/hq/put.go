@@ -20,7 +20,7 @@ func ActionPut(context *cli.Context) error {
 		return fmt.Errorf("msg.Receive failed: %w", err)
 	}
 
-	query, ok := raw.(*msg.PutQueryMessage)
+	data, ok := raw.(*msg.PutStrategyMessage)
 	if !ok {
 		return fmt.Errorf("invalid data format")
 	}
@@ -30,14 +30,19 @@ func ActionPut(context *cli.Context) error {
 		return fmt.Errorf("readConfig failed: %w", err)
 	}
 
-	size := len(query.Query) / len(conf.Workers)
+	size := len(data.Strategy.Fragments) / len(conf.Workers)
 
 	broadcast(conf.Workers, func(i int, worker string) error {
 		last := (i + 1) * size
 		if i+1 == len(conf.Workers) {
-			last = len(query.Query)
+			last = len(data.Strategy.Fragments)
 		}
-		return communicate(worker, &msg.PutQueryMessage{Query: query.Query[i*size : last]})
+		return communicate(worker, &msg.PutStrategyMessage{
+			Strategy: &msg.Strategy{
+				Templates: data.Strategy.Templates,
+				Fragments: data.Strategy.Fragments[i*size : last],
+			},
+		})
 	})
 	return nil
 }

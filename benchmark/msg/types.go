@@ -7,9 +7,17 @@ type (
 		ROServers []string `yaml:"ro_servers"`
 	}
 
-	Query struct {
+	Strategy struct {
+		Templates []*Template
+		Fragments []*Fragment
+	}
+	Template struct {
 		RO  bool
 		SQL string
+	}
+	Fragment struct {
+		Reference int
+		Arguments []interface{}
 	}
 
 	Metric struct {

@@ -11,9 +11,7 @@ import (
 
 type (
 	worker struct {
-		listener net.Listener
-
-		queries     []*msg.Query
+		listener    net.Listener
 		benchmarker benchmarker
 	}
 )
@@ -65,13 +63,13 @@ func (w *worker) handle(c net.Conn) {
 
 	var resp interface{}
 
-	if body, ok := rawBody.(*msg.PutQueryMessage); ok {
-		w.queries = body.Query
-		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received %v queries", len(w.queries))}
+	if body, ok := rawBody.(*msg.PutStrategyMessage); ok {
+		w.benchmarker.Strategy = body.Strategy
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received strategy: %v templates, %v fragments", len(body.Strategy.Templates), len(body.Strategy.Fragments))}
 	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {
 		switch body.Mode {
 		case "start":
-			if err := w.benchmarker.Start(body.TS, body.Config, w.queries); err != nil {
+			if err := w.benchmarker.Start(body.TS, body.Config); err != nil {
 				panic(fmt.Errorf("starting benchmark failed: %w", err))
 			}
 			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", body.Config)}
