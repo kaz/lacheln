@@ -20,7 +20,7 @@ type (
 
 		total   int64
 		current int64
-		qps     map[int64]int64
+		qps     map[uint16]int64
 	}
 )
 
@@ -80,7 +80,7 @@ func (c *collector) Graph() {
 
 	data := make([][2]int64, 0, len(c.qps))
 	for key, value := range c.qps {
-		data = append(data, [2]int64{key, value})
+		data = append(data, [2]int64{int64(key), value})
 	}
 
 	sort.Slice(data, func(i, j int) bool { return data[i][0] < data[j][0] })
@@ -94,7 +94,7 @@ func (c *collector) fetch() {
 	c.mu = &sync.Mutex{}
 	c.total = 0
 	c.current = 0
-	c.qps = make(map[int64]int64)
+	c.qps = make(map[uint16]int64)
 
 	broadcast(c.workers, c.collect)
 }
@@ -130,11 +130,11 @@ func (c *collector) merge(metric *msg.Metric) {
 
 	c.total += metric.Total
 
-	for _, tss := range metric.TS {
+	for _, tss := range metric.Timestamp {
 		for _, ts := range tss {
-			if ts != 0 {
+			if ts[0] != 0 {
 				c.current += 1
-				c.qps[ts] += 1
+				c.qps[ts[0]] += 1
 			}
 		}
 	}

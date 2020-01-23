@@ -3,6 +3,7 @@ package msg
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pierrec/lz4"
 	"github.com/vmihailenco/msgpack"
@@ -21,6 +22,7 @@ type (
 	BenchmarkJobMessage struct {
 		Mode   string
 		Config *BenchmarkConfig
+		TS     time.Time
 	}
 	MetricsRequestMessage struct {
 	}

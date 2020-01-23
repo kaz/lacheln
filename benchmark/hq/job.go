@@ -3,6 +3,7 @@ package hq
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kaz/lacheln/benchmark/msg"
 	"github.com/urfave/cli/v2"
@@ -34,7 +35,11 @@ func ActionJob(context *cli.Context) error {
 	}
 
 	broadcast(conf.Workers, func(i int, worker string) error {
-		return communicate(worker, &msg.BenchmarkJobMessage{Mode: context.String("mode"), Config: benchConf})
+		return communicate(worker, &msg.BenchmarkJobMessage{
+			Mode:   context.String("mode"),
+			Config: benchConf,
+			TS:     time.Now().Add(-10 * time.Second),
+		})
 	})
 	return nil
 }

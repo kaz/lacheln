@@ -35,7 +35,7 @@ func getConnections(servers []string) ([]*sql.DB, error) {
 	return connections, nil
 }
 
-func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) error {
+func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig, queries []*msg.Query) error {
 	if len(queries) < 1 {
 		return fmt.Errorf("No query")
 	}
@@ -47,8 +47,8 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) e
 	b.wg = &sync.WaitGroup{}
 
 	b.Metric = &msg.Metric{
-		Total: int64(len(queries)),
-		TS:    [][]int64{},
+		Total:     int64(len(queries)),
+		Timestamp: [][][2]uint16{},
 	}
 
 	size := len(queries) / config.Threads
@@ -70,11 +70,11 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, queries []*msg.Query) e
 		}
 		chunk := queries[i*size : last]
 
-		ts := make([]int64, len(chunk))
-		b.Metric.TS = append(b.Metric.TS, ts)
+		stamps := make([][2]uint16, len(chunk))
+		b.Metric.Timestamp = append(b.Metric.Timestamp, stamps)
 
 		b.wg.Add(1)
-		go b.run(rwConn, roConn, chunk, ts)
+		go b.run(rwConn, roConn, chunk, ts, stamps)
 	}
 
 	go func() {
@@ -95,10 +95,12 @@ func (b *benchmarker) Cancel() error {
 	return nil
 }
 
-func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query, ts []int64) {
+func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query, base time.Time, stamps [][2]uint16) {
 	log.Println("benchmark thread was spawned")
 
 	for i, query := range queries {
+		start := time.Now()
+
 		db := roConn[i%len(roConn)]
 		if !query.RO {
 			db = rwConn[i%len(rwConn)]
@@ -111,7 +113,10 @@ func (b *benchmarker) run(rwConn, roConn []*sql.DB, queries []*msg.Query, ts []i
 		}
 		rows.Close()
 
-		ts[i] = time.Now().Unix()
+		stamps[i] = [2]uint16{
+			uint16(start.Sub(base).Seconds()),
+			uint16(time.Now().Sub(start).Milliseconds()),
+		}
 
 		if b.cancelled {
 			break

@@ -13,7 +13,7 @@ type (
 	}
 
 	Metric struct {
-		Total int64
-		TS    [][]int64
+		Total     int64
+		Timestamp [][][2]uint16
 	}
 )
