@@ -21,6 +21,7 @@ type (
 		total   int64
 		current int64
 		qps     map[uint16]int64
+		latency []uint16
 	}
 )
 
@@ -67,13 +68,27 @@ func (c *collector) Progress() {
 func (c *collector) Result() {
 	c.fetch()
 
-	var qpsSum int64
+	var qpsSum uint64
 	for _, value := range c.qps {
-		qpsSum += value
+		qpsSum += uint64(value)
 	}
 
 	fmt.Printf("%9.2f %% (%d/%d)\n", 100*float64(c.current)/float64(c.total), c.current, c.total)
-	fmt.Printf("%9.0f q/s\n", float64(qpsSum)/float64(len(c.qps)))
+	fmt.Printf("%9.0f q/s\n\n", float64(qpsSum)/float64(len(c.qps)))
+
+	sort.Slice(c.latency, func(i, j int) bool { return c.latency[i] < c.latency[j] })
+
+	var latencySum uint64
+	for _, value := range c.latency {
+		latencySum += uint64(value)
+	}
+
+	fmt.Printf("average latency: %6.0f ms\n", float64(latencySum)/float64(len(c.latency)))
+	fmt.Printf("50perc. latency: %6.0d ms\n", c.latency[int(0.50*float64(len(c.latency)))])
+	fmt.Printf("75perc. latency: %6.0d ms\n", c.latency[int(0.75*float64(len(c.latency)))])
+	fmt.Printf("90perc. latency: %6.0d ms\n", c.latency[int(0.90*float64(len(c.latency)))])
+	fmt.Printf("95perc. latency: %6.0d ms\n", c.latency[int(0.95*float64(len(c.latency)))])
+	fmt.Printf("99perc. latency: %6.0d ms\n", c.latency[int(0.99*float64(len(c.latency)))])
 }
 func (c *collector) Graph() {
 	c.fetch()
@@ -135,6 +150,7 @@ func (c *collector) merge(metric *msg.Metric) {
 			if ts[0] != 0 {
 				c.current += 1
 				c.qps[ts[0]] += 1
+				c.latency = append(c.latency, ts[1])
 			}
 		}
 	}
