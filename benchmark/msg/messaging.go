@@ -20,9 +20,9 @@ type (
 		Strategy *Strategy
 	}
 	BenchmarkJobMessage struct {
-		Mode   string
-		Config *BenchmarkConfig
-		TS     time.Time
+		Mode    string
+		Config  *BenchmarkConfig
+		StartAt time.Time
 	}
 	MetricsRequestMessage struct {
 	}

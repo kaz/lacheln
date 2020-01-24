@@ -36,9 +36,9 @@ func ActionJob(context *cli.Context) error {
 
 	broadcast(conf.Workers, func(i int, worker string) error {
 		return communicate(worker, &msg.BenchmarkJobMessage{
-			Mode:   context.String("mode"),
-			Config: benchConf,
-			TS:     time.Now().Add(-10 * time.Second),
+			Mode:    context.String("mode"),
+			Config:  benchConf,
+			StartAt: time.Now().Add(-10 * time.Second),
 		})
 	})
 	return nil

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -16,29 +15,24 @@ type (
 	benchmarker struct {
 		cancelled bool
 		wg        *sync.WaitGroup
+		startAt   time.Time
+		conns     map[bool][]*sql.DB
 
 		Strategy *msg.Strategy
 		Metric   *msg.Metric
 	}
+
+	benchmarkThread struct {
+		parent *benchmarker
+
+		fragments []*msg.Fragment
+		stamps    [][2]uint16
+	}
 )
 
-func getConnections(servers []string) ([]*sql.DB, error) {
-	connections := make([]*sql.DB, len(servers))
-	for i, dsn := range servers {
-		conn, err := sql.Open("mysql", dsn)
-		if err != nil {
-			return nil, fmt.Errorf("sql.Open failed: %w", err)
-		}
-		connections[i] = conn
-	}
-
-	rand.Shuffle(len(connections), func(i, j int) { connections[i], connections[j] = connections[j], connections[i] })
-	return connections, nil
-}
-
-func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig) error {
-	if len(b.Strategy.Fragments) < 1 {
-		return fmt.Errorf("No query")
+func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) error {
+	if b.Strategy.Fragments == nil {
+		return fmt.Errorf("No strategy")
 	}
 	if b.wg != nil {
 		return fmt.Errorf("Job is already working")
@@ -46,6 +40,23 @@ func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig) error {
 
 	b.cancelled = false
 	b.wg = &sync.WaitGroup{}
+	b.startAt = startAt
+
+	b.conns = map[bool][]*sql.DB{
+		true:  []*sql.DB{},
+		false: []*sql.DB{},
+	}
+	for _, server := range config.Servers {
+		conn, err := sql.Open("mysql", server.DSN)
+		if err != nil {
+			return fmt.Errorf("sql.Open failed: %w", err)
+		}
+
+		conn.SetMaxOpenConns(server.MaxOpenConns)
+		conn.SetMaxIdleConns(server.MaxIdleConns)
+		conn.SetConnMaxLifetime(server.ConnMaxLifetime * time.Millisecond)
+		b.conns[server.RO] = append(b.conns[server.RO], conn)
+	}
 
 	b.Metric = &msg.Metric{
 		Total:     int64(len(b.Strategy.Fragments)),
@@ -55,32 +66,34 @@ func (b *benchmarker) Start(ts time.Time, config *msg.BenchmarkConfig) error {
 	size := len(b.Strategy.Fragments) / config.Threads
 
 	for i := 0; i < config.Threads; i++ {
-		roConn, err := getConnections(config.ROServers)
-		if err != nil {
-			return fmt.Errorf("getConnections failed: %w", err)
-		}
-
-		rwConn, err := getConnections(config.RWServers)
-		if err != nil {
-			return fmt.Errorf("getConnections failed: %w", err)
-		}
-
 		last := (i + 1) * size
 		if i+1 == config.Threads {
 			last = len(b.Strategy.Fragments)
 		}
-		chunk := b.Strategy.Fragments[i*size : last]
+		fragments := b.Strategy.Fragments[i*size : last]
 
-		stamps := make([][2]uint16, len(chunk))
+		stamps := make([][2]uint16, len(fragments))
 		b.Metric.Timestamp = append(b.Metric.Timestamp, stamps)
 
+		bt := &benchmarkThread{
+			parent:    b,
+			fragments: fragments,
+			stamps:    stamps,
+		}
+
 		b.wg.Add(1)
-		go b.run(rwConn, roConn, chunk, ts, stamps)
+		go bt.Run()
 	}
 
 	go func() {
 		b.wg.Wait()
 		b.wg = nil
+
+		for _, pool := range b.conns {
+			for _, db := range pool {
+				db.Close()
+			}
+		}
 	}()
 
 	return nil
@@ -96,41 +109,34 @@ func (b *benchmarker) Cancel() error {
 	return nil
 }
 
-func (b *benchmarker) run(rwConn, roConn []*sql.DB, fragments []*msg.Fragment, base time.Time, stamps [][2]uint16) {
+func (bt *benchmarkThread) Run() {
 	log.Println("benchmark thread was spawned")
 
-	for i, frag := range fragments {
-		template := b.Strategy.Templates[frag.Reference]
+	for i, frag := range bt.fragments {
+		template := bt.parent.Strategy.Templates[frag.Reference]
 		query := fmt.Sprintf(template.SQL, frag.Arguments...)
+		pool := bt.parent.conns[template.RO]
 
-		db := roConn[i%len(roConn)]
-		if !template.RO {
-			db = rwConn[i%len(rwConn)]
-		}
+		queryStartAt := time.Now()
 
-		start := time.Now()
-
-		rows, err := db.Query(query)
+		rows, err := pool[i%len(pool)].Query(query)
 		if err != nil {
 			log.Printf("db.Query failed: %v\n", err)
 			continue
 		}
-		rows.Close()
-
-		stamps[i] = [2]uint16{
-			uint16(start.Sub(base).Seconds()),
-			uint16(time.Now().Sub(start).Milliseconds()),
+		for rows.Next() {
 		}
 
-		if b.cancelled {
+		bt.stamps[i] = [2]uint16{
+			uint16(queryStartAt.Sub(bt.parent.startAt).Seconds()),
+			uint16(time.Now().Sub(queryStartAt).Milliseconds()),
+		}
+
+		if bt.parent.cancelled {
 			break
 		}
 	}
 
-	for _, db := range append(rwConn, roConn...) {
-		db.Close()
-	}
-
 	log.Println("benchmark thread was terminated")
-	b.wg.Done()
+	bt.parent.wg.Done()
 }

@@ -1,10 +1,18 @@
 package msg
 
+import "time"
+
 type (
 	BenchmarkConfig struct {
-		Threads   int
-		RWServers []string `yaml:"rw_servers"`
-		ROServers []string `yaml:"ro_servers"`
+		Threads int
+		Servers []*Server
+	}
+	Server struct {
+		RO              bool
+		DSN             string
+		MaxOpenConns    int           `yaml:"max_open_conns"`
+		MaxIdleConns    int           `yaml:"max_idle_conns"`
+		ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
 	}
 
 	Strategy struct {

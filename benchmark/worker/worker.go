@@ -69,7 +69,7 @@ func (w *worker) handle(c net.Conn) {
 	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {
 		switch body.Mode {
 		case "start":
-			if err := w.benchmarker.Start(body.TS, body.Config); err != nil {
+			if err := w.benchmarker.Start(body.Config, body.StartAt); err != nil {
 				panic(fmt.Errorf("starting benchmark failed: %w", err))
 			}
 			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", body.Config)}
