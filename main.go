@@ -117,7 +117,7 @@ func main() {
 								Required: true,
 							},
 							&cli.StringFlag{
-								Name:     "type",
+								Name:     "mode",
 								Required: true,
 							},
 						},

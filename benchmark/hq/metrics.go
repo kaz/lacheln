@@ -36,7 +36,7 @@ func ActionMetrics(context *cli.Context) error {
 		mu:      &sync.Mutex{},
 	}
 
-	switch context.String("type") {
+	switch context.String("mode") {
 	case "progress":
 		c.Progress()
 	case "result":
@@ -44,7 +44,7 @@ func ActionMetrics(context *cli.Context) error {
 	case "graph":
 		c.Graph()
 	default:
-		return fmt.Errorf("no such type: %v", context.String("type"))
+		return fmt.Errorf("no such mode: %v", context.String("mode"))
 	}
 
 	return nil
