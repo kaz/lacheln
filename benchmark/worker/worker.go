@@ -64,18 +64,29 @@ func (w *worker) handle(c net.Conn) {
 	var resp interface{}
 
 	if body, ok := rawBody.(*msg.PutStrategyMessage); ok {
-		w.benchmarker.Strategy = body.Strategy
-		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received strategy: %v templates, %v fragments", len(body.Strategy.Templates), len(body.Strategy.Fragments))}
+		switch body.Mode {
+		case "put":
+			if err := w.benchmarker.PutStrategy(body.Strategy, true); err != nil {
+				panic(fmt.Errorf("benchmarker.PutStrategy failed: %w", err))
+			}
+		case "append":
+			if err := w.benchmarker.PutStrategy(body.Strategy, false); err != nil {
+				panic(fmt.Errorf("benchmarker.PutStrategy failed: %w", err))
+			}
+		default:
+			panic(fmt.Errorf("unexpected mode: %v", body.Mode))
+		}
+		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received strategy: %v templates, %v fragments", len(w.benchmarker.Strategy.Templates), len(w.benchmarker.Strategy.Fragments))}
 	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {
 		switch body.Mode {
 		case "start":
 			if err := w.benchmarker.Start(body.Config, body.StartAt); err != nil {
-				panic(fmt.Errorf("starting benchmark failed: %w", err))
+				panic(fmt.Errorf("benchmarker.Start failed: %w", err))
 			}
 			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("benchmark was started with config: %+v", body.Config)}
 		case "cancel":
 			if err := w.benchmarker.Cancel(); err != nil {
-				panic(fmt.Errorf("canceling benchmark failed: %w", err))
+				panic(fmt.Errorf("benchmarker.Cancel failed: %w", err))
 			}
 			resp = &msg.AcknowledgedMessage{Status: "OK", Detail: "benchmark was cancelled"}
 		default:

@@ -17,6 +17,7 @@ type (
 		Detail string
 	}
 	PutStrategyMessage struct {
+		Mode     string
 		Strategy *Strategy
 	}
 	BenchmarkJobMessage struct {

@@ -9,7 +9,12 @@ import (
 )
 
 func ActionPut(context *cli.Context) error {
-	input, err := os.Open(context.String("input"))
+	conf, err := readConfig(context.String("config"))
+	if err != nil {
+		return fmt.Errorf("readConfig failed: %w", err)
+	}
+
+	input, err := os.Open(context.String("data"))
 	if err != nil {
 		return fmt.Errorf("os.Open failed: %w", err)
 	}
@@ -25,11 +30,6 @@ func ActionPut(context *cli.Context) error {
 		return fmt.Errorf("invalid data format")
 	}
 
-	conf, err := readConfig(context.String("config"))
-	if err != nil {
-		return fmt.Errorf("readConfig failed: %w", err)
-	}
-
 	size := len(data.Strategy.Fragments) / len(conf.Workers)
 
 	broadcast(conf.Workers, func(i int, worker string) error {
@@ -38,6 +38,7 @@ func ActionPut(context *cli.Context) error {
 			last = len(data.Strategy.Fragments)
 		}
 		return communicate(worker, &msg.PutStrategyMessage{
+			Mode: context.String("mode"),
 			Strategy: &msg.Strategy{
 				Templates: data.Strategy.Templates,
 				Fragments: data.Strategy.Fragments[i*size : last],

@@ -89,7 +89,11 @@ func main() {
 								Required: true,
 							},
 							&cli.StringFlag{
-								Name:     "input",
+								Name:     "data",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "mode",
 								Required: true,
 							},
 						},

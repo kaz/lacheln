@@ -30,6 +30,20 @@ type (
 	}
 )
 
+func (b *benchmarker) PutStrategy(strategy *msg.Strategy, clear bool) error {
+	if clear {
+		b.Strategy = strategy
+		return nil
+	}
+
+	if len(strategy.Templates) != len(b.Strategy.Templates) {
+		return fmt.Errorf("template count is not match")
+	}
+
+	b.Strategy.Fragments = append(b.Strategy.Fragments, strategy.Fragments...)
+	return nil
+}
+
 func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) error {
 	if b.Strategy.Fragments == nil {
 		return fmt.Errorf("No strategy")
