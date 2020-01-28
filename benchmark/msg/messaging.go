@@ -1,12 +1,11 @@
 package msg
 
 import (
+	"compress/flate"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/pierrec/lz4"
-	"github.com/vmihailenco/msgpack"
 )
 
 type (
@@ -110,20 +109,28 @@ func receiveType(r io.Reader) (MessageType, error) {
 }
 
 func sendBody(w io.Writer, data interface{}) error {
-	compressor := lz4.NewWriter(w)
-	if err := msgpack.NewEncoder(compressor).Encode(data); err != nil {
-		return fmt.Errorf("msgpack.NewEncoder.Encode failed: %w", err)
+	flator, err := flate.NewWriter(w, flate.DefaultCompression)
+	if err != nil {
+		return fmt.Errorf(" flate.NewWriter failed: %w", err)
 	}
 
-	if err := compressor.Flush(); err != nil {
-		return fmt.Errorf("compressor.Flush failed: %w", err)
+	if err := gob.NewEncoder(flator).Encode(data); err != nil {
+		return fmt.Errorf("gob.NewEncoder.Encode failed: %w", err)
+	}
+
+	if err := flator.Flush(); err != nil {
+		return fmt.Errorf("flator.Flush failed: %w", err)
+	}
+
+	if err := flator.Close(); err != nil {
+		return fmt.Errorf("flator.Close failed: %w", err)
 	}
 
 	return nil
 }
 func receiveBody(r io.Reader, data interface{}) error {
-	if err := msgpack.NewDecoder(lz4.NewReader(r)).Decode(data); err != nil {
-		return fmt.Errorf("msgpack.NewDecoder.Decode failed: %w", err)
+	if err := gob.NewDecoder(flate.NewReader(r)).Decode(data); err != nil {
+		return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
 	}
 
 	return nil
