@@ -12,7 +12,7 @@ import (
 type (
 	worker struct {
 		listener    net.Listener
-		benchmarker benchmarker
+		benchmarker *benchmarker
 	}
 )
 
@@ -29,7 +29,10 @@ func Action(context *cli.Context) error {
 
 	fmt.Println("listening on " + port)
 
-	w := &worker{listener: listener}
+	w := &worker{
+		listener,
+		NewBenchmarker(),
+	}
 	return w.Start()
 }
 

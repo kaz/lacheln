@@ -15,8 +15,10 @@ type (
 	benchmarker struct {
 		cancelled bool
 		wg        *sync.WaitGroup
-		startAt   time.Time
-		conns     map[bool][]*sql.DB
+		mu        *sync.Mutex
+
+		startAt time.Time
+		conns   map[bool][]*sql.DB
 
 		Strategy *msg.Strategy
 		Metric   *msg.Metric
@@ -30,7 +32,18 @@ type (
 	}
 )
 
+func NewBenchmarker() *benchmarker {
+	return &benchmarker{
+		cancelled: false,
+		wg:        &sync.WaitGroup{},
+		mu:        &sync.Mutex{},
+	}
+}
+
 func (b *benchmarker) PutStrategy(strategy *msg.Strategy, reset bool) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if reset || b.Strategy == nil {
 		b.Strategy = strategy
 		return nil
@@ -52,10 +65,7 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) erro
 		return fmt.Errorf("Job is already working")
 	}
 
-	b.cancelled = false
-	b.wg = &sync.WaitGroup{}
 	b.startAt = startAt
-
 	b.conns = map[bool][]*sql.DB{
 		true:  []*sql.DB{},
 		false: []*sql.DB{},
