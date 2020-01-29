@@ -131,10 +131,6 @@ func sendBody(w io.Writer, data interface{}) error {
 		return fmt.Errorf("flator.Flush failed: %w", err)
 	}
 
-	if err := flator.Close(); err != nil {
-		return fmt.Errorf("flator.Close failed: %w", err)
-	}
-
 	return nil
 }
 func receiveBody(r io.Reader, data interface{}) error {
