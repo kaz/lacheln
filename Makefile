@@ -1,6 +1,8 @@
 .PHONY: default
 default: docker-build
 
+clean:
+	rm -rf .build lacheln sample.so
 
 ###############
 # local build #
