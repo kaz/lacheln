@@ -38,23 +38,23 @@ func ActionMetrics(context *cli.Context) error {
 
 	switch context.String("mode") {
 	case "progress":
-		c.Progress()
+		return c.Progress()
 	case "result":
-		c.Result()
+		return c.Result()
 	case "graph":
-		c.Graph()
+		return c.Graph()
 	default:
 		return fmt.Errorf("no such mode: %v", context.String("mode"))
 	}
-
-	return nil
 }
 
-func (c *collector) Progress() {
+func (c *collector) Progress() error {
 	progress := pb.Full.New(0).Start()
 
 	for {
-		c.fetch()
+		if err := c.fetch(); err != nil {
+			return fmt.Errorf("fetch failed: %w", err)
+		}
 
 		progress.SetTotal(c.total).SetCurrent(c.current)
 		if c.current >= c.total {
@@ -64,9 +64,13 @@ func (c *collector) Progress() {
 
 		time.Sleep(1 * time.Second)
 	}
+
+	return nil
 }
-func (c *collector) Result() {
-	c.fetch()
+func (c *collector) Result() error {
+	if err := c.fetch(); err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
 
 	var qpsSum uint64
 	for _, value := range c.qps {
@@ -89,9 +93,13 @@ func (c *collector) Result() {
 	fmt.Printf("90perc. latency: %6.0d ms\n", c.latency[int(0.90*float64(len(c.latency)))])
 	fmt.Printf("95perc. latency: %6.0d ms\n", c.latency[int(0.95*float64(len(c.latency)))])
 	fmt.Printf("99perc. latency: %6.0d ms\n", c.latency[int(0.99*float64(len(c.latency)))])
+
+	return nil
 }
-func (c *collector) Graph() {
-	c.fetch()
+func (c *collector) Graph() error {
+	if err := c.fetch(); err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
 
 	data := make([][2]int64, 0, len(c.qps))
 	for key, value := range c.qps {
@@ -103,15 +111,20 @@ func (c *collector) Graph() {
 	for _, kv := range data {
 		fmt.Printf("%d\t%d\n", kv[0], kv[1])
 	}
+
+	return nil
 }
 
-func (c *collector) fetch() {
+func (c *collector) fetch() error {
 	c.mu = &sync.Mutex{}
 	c.total = 0
 	c.current = 0
 	c.qps = make(map[uint16]int64)
 
-	broadcast(c.workers, c.collect)
+	if err := broadcast(c.workers, c.collect); err != nil {
+		return fmt.Errorf("broadcast failed: %w", err)
+	}
+	return nil
 }
 
 func (c *collector) collect(i int, worker string) error {

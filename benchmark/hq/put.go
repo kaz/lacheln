@@ -22,9 +22,12 @@ func ActionPut(context *cli.Context) error {
 	defer input.Close()
 
 	if context.Bool("reset") {
-		broadcast(conf.Workers, func(i int, worker string) error {
+		err := broadcast(conf.Workers, func(i int, worker string) error {
 			return communicate(worker, &msg.PutStrategyMessage{Reset: true})
 		})
+		if err != nil {
+			return fmt.Errorf("broadcast failed: %w", err)
+		}
 	}
 
 	i := 0

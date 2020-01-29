@@ -34,12 +34,15 @@ func ActionJob(context *cli.Context) error {
 		return fmt.Errorf("readConfig failed: %w", err)
 	}
 
-	broadcast(conf.Workers, func(i int, worker string) error {
+	err = broadcast(conf.Workers, func(i int, worker string) error {
 		return communicate(worker, &msg.BenchmarkJobMessage{
 			Mode:    context.String("mode"),
 			Config:  benchConf,
 			StartAt: time.Now().Add(-10 * time.Second),
 		})
 	})
+	if err != nil {
+		return fmt.Errorf("broadcast failed: %w", err)
+	}
 	return nil
 }

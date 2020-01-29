@@ -32,18 +32,26 @@ func readConfig(configPath string) (*config, error) {
 	return conf, nil
 }
 
-func broadcast(workers []string, action func(int, string) error) {
+func broadcast(workers []string, action func(int, string) error) error {
 	wg := &sync.WaitGroup{}
+	chErr := make(chan error)
+
 	for i, worker := range workers {
 		wg.Add(1)
 		go func(i int, worker string) {
+			defer wg.Done()
 			if err := action(i, worker); err != nil {
-				log.Printf("action failed: %v\n", err)
+				chErr <- fmt.Errorf("action failed: %w", err)
 			}
-			wg.Done()
 		}(i, worker)
 	}
-	wg.Wait()
+
+	go func() {
+		wg.Wait()
+		chErr <- nil
+	}()
+
+	return <-chErr
 }
 
 func communicate(worker string, data interface{}) error {
