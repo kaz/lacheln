@@ -11,12 +11,14 @@ import (
 type (
 	MessageType byte
 
+	TypedRawMessage []byte
+
 	AcknowledgedMessage struct {
 		Status string
 		Detail string
 	}
 	PutStrategyMessage struct {
-		Mode     string
+		Reset    bool
 		Strategy *Strategy
 	}
 	BenchmarkJobMessage struct {
@@ -41,6 +43,13 @@ const (
 )
 
 func Send(w io.Writer, body interface{}) error {
+	if raw, ok := body.(TypedRawMessage); ok {
+		if err := sendRaw(w, raw); err != nil {
+			return fmt.Errorf("sendRaw failed: %w", err)
+		}
+		return nil
+	}
+
 	var typ MessageType
 
 	switch body.(type) {
@@ -133,5 +142,12 @@ func receiveBody(r io.Reader, data interface{}) error {
 		return fmt.Errorf("gob.NewDecoder.Decode failed: %w", err)
 	}
 
+	return nil
+}
+
+func sendRaw(w io.Writer, raw TypedRawMessage) error {
+	if _, err := w.Write(raw); err != nil {
+		return fmt.Errorf("w.Write failed: %w", err)
+	}
 	return nil
 }

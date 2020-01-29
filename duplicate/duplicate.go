@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/kaz/lacheln/benchmark/msg"
+	"github.com/kaz/lacheln/duplicate/codec"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 )
@@ -62,7 +62,7 @@ func Action(context *cli.Context) error {
 			fmt.Fprintf(out, tmp.SQL+";\n", frag.Arguments...)
 		}
 	} else {
-		if err := msg.Send(out, &msg.PutStrategyMessage{Strategy: duplicate(entries)}); err != nil {
+		if err := codec.Serialize(out, duplicate(entries)); err != nil {
 			return fmt.Errorf("msg.Send failed: %w", err)
 		}
 	}

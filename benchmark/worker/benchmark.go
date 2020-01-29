@@ -30,8 +30,8 @@ type (
 	}
 )
 
-func (b *benchmarker) PutStrategy(strategy *msg.Strategy, clear bool) error {
-	if clear {
+func (b *benchmarker) PutStrategy(strategy *msg.Strategy, reset bool) error {
+	if reset || b.Strategy == nil {
 		b.Strategy = strategy
 		return nil
 	}

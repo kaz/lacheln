@@ -64,17 +64,8 @@ func (w *worker) handle(c net.Conn) {
 	var resp interface{}
 
 	if body, ok := rawBody.(*msg.PutStrategyMessage); ok {
-		switch body.Mode {
-		case "put":
-			if err := w.benchmarker.PutStrategy(body.Strategy, true); err != nil {
-				panic(fmt.Errorf("benchmarker.PutStrategy failed: %w", err))
-			}
-		case "append":
-			if err := w.benchmarker.PutStrategy(body.Strategy, false); err != nil {
-				panic(fmt.Errorf("benchmarker.PutStrategy failed: %w", err))
-			}
-		default:
-			panic(fmt.Errorf("unexpected mode: %v", body.Mode))
+		if err := w.benchmarker.PutStrategy(body.Strategy, body.Reset); err != nil {
+			panic(fmt.Errorf("benchmarker.PutStrategy failed: %w", err))
 		}
 		resp = &msg.AcknowledgedMessage{Status: "OK", Detail: fmt.Sprintf("received strategy: %v templates, %v fragments", len(w.benchmarker.Strategy.Templates), len(w.benchmarker.Strategy.Fragments))}
 	} else if body, ok := rawBody.(*msg.BenchmarkJobMessage); ok {

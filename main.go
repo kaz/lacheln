@@ -92,9 +92,8 @@ func main() {
 								Name:     "data",
 								Required: true,
 							},
-							&cli.StringFlag{
-								Name:     "mode",
-								Required: true,
+							&cli.BoolFlag{
+								Name: "reset",
 							},
 						},
 					},

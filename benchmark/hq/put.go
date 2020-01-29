@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kaz/lacheln/benchmark/msg"
+	"github.com/kaz/lacheln/duplicate/codec"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,30 +21,19 @@ func ActionPut(context *cli.Context) error {
 	}
 	defer input.Close()
 
-	raw, err := msg.Receive(input)
-	if err != nil {
-		return fmt.Errorf("msg.Receive failed: %w", err)
-	}
-
-	data, ok := raw.(*msg.PutStrategyMessage)
-	if !ok {
-		return fmt.Errorf("invalid data format")
-	}
-
-	size := len(data.Strategy.Fragments) / len(conf.Workers)
-
-	broadcast(conf.Workers, func(i int, worker string) error {
-		last := (i + 1) * size
-		if i+1 == len(conf.Workers) {
-			last = len(data.Strategy.Fragments)
-		}
-		return communicate(worker, &msg.PutStrategyMessage{
-			Mode: context.String("mode"),
-			Strategy: &msg.Strategy{
-				Templates: data.Strategy.Templates,
-				Fragments: data.Strategy.Fragments[i*size : last],
-			},
+	if context.Bool("reset") {
+		broadcast(conf.Workers, func(i int, worker string) error {
+			return communicate(worker, &msg.PutStrategyMessage{Reset: true})
 		})
-	})
+	}
+
+	i := 0
+	for rawMsg := range codec.Deserialize(input) {
+		if err := communicate(conf.Workers[i%len(conf.Workers)], rawMsg); err != nil {
+			return fmt.Errorf("communicate failed: %w", err)
+		}
+		i++
+	}
+
 	return nil
 }
