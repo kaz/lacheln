@@ -12,10 +12,12 @@ import (
 )
 
 type (
+	state uint8
+
 	benchmarker struct {
-		cancelled bool
-		wg        *sync.WaitGroup
-		mu        *sync.Mutex
+		state state
+		wg    *sync.WaitGroup
+		mu    *sync.Mutex
 
 		startAt time.Time
 		conns   map[bool][]*sql.DB
@@ -32,11 +34,17 @@ type (
 	}
 )
 
+const (
+	STATE_READY state = iota
+	STATE_RUNNING
+	STATE_CANCELLED
+)
+
 func NewBenchmarker() *benchmarker {
 	return &benchmarker{
-		cancelled: false,
-		wg:        &sync.WaitGroup{},
-		mu:        &sync.Mutex{},
+		state: STATE_READY,
+		wg:    &sync.WaitGroup{},
+		mu:    &sync.Mutex{},
 	}
 }
 
@@ -58,10 +66,10 @@ func (b *benchmarker) PutStrategy(strategy *msg.Strategy, reset bool) error {
 }
 
 func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) error {
-	if b.Strategy.Fragments == nil {
+	if b.Strategy == nil {
 		return fmt.Errorf("No strategy")
 	}
-	if b.wg != nil {
+	if b.state != STATE_READY {
 		return fmt.Errorf("Job is already working")
 	}
 
@@ -81,6 +89,8 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) erro
 		conn.SetConnMaxLifetime(server.ConnMaxLifetime * time.Millisecond)
 		b.conns[server.RO] = append(b.conns[server.RO], conn)
 	}
+
+	b.state = STATE_RUNNING
 
 	b.Metric = &msg.Metric{
 		Total:     int64(len(b.Strategy.Fragments)),
@@ -111,23 +121,24 @@ func (b *benchmarker) Start(config *msg.BenchmarkConfig, startAt time.Time) erro
 
 	go func() {
 		b.wg.Wait()
-		b.wg = nil
 
 		for _, pool := range b.conns {
 			for _, db := range pool {
 				db.Close()
 			}
 		}
+
+		b.state = STATE_READY
 	}()
 
 	return nil
 }
 func (b *benchmarker) Cancel() error {
-	if b.wg == nil {
+	if b.state != STATE_RUNNING {
 		return fmt.Errorf("No job is working")
 	}
 
-	b.cancelled = true
+	b.state = STATE_CANCELLED
 	b.wg.Wait()
 
 	return nil
@@ -156,7 +167,7 @@ func (bt *benchmarkThread) Run() {
 			uint16(time.Now().Sub(queryStartAt).Milliseconds()),
 		}
 
-		if bt.parent.cancelled {
+		if bt.parent.state == STATE_CANCELLED {
 			break
 		}
 	}
